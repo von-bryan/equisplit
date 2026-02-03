@@ -10,7 +10,8 @@ class FriendsPage extends StatefulWidget {
   State<FriendsPage> createState() => _FriendsPageState();
 }
 
-class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStateMixin {
+class _FriendsPageState extends State<FriendsPage>
+    with SingleTickerProviderStateMixin {
   final _friendsRepo = FriendsRepository();
   final _searchController = TextEditingController();
   late TabController _tabController;
@@ -25,6 +26,7 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
   bool _isLoadingFriends = false;
 
   int? _currentUserId;
+  final Set<int> _animatingOut = {}; // Track items being animated out
 
   @override
   void initState() {
@@ -105,36 +107,72 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
   Future<void> _sendFriendRequest(int receiverId) async {
     if (_currentUserId == null) return;
 
-    final success =
-        await _friendsRepo.sendFriendRequest(_currentUserId!, receiverId);
+    final success = await _friendsRepo.sendFriendRequest(
+      _currentUserId!,
+      receiverId,
+    );
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Friend request sent')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('✅ Friend request sent')));
       _onSearchChanged(); // Refresh search results
       _loadSuggestedFriends(); // Refresh suggestions
     }
   }
 
   Future<void> _acceptRequest(int requestId, int friendId) async {
+    // Mark as animating out
+    setState(() {
+      _animatingOut.add(requestId);
+    });
+
+    // Wait for animation to complete
+    await Future.delayed(const Duration(milliseconds: 300));
+
     final success = await _friendsRepo.acceptFriendRequest(requestId);
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Friend added')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('✅ Friend added')));
+
+      // Remove from animating set
+      _animatingOut.remove(requestId);
+
       _loadPendingRequests();
       _loadMyFriends();
       _loadSuggestedFriends();
+    } else if (mounted) {
+      // Remove from animating set if failed
+      setState(() {
+        _animatingOut.remove(requestId);
+      });
     }
   }
 
   Future<void> _rejectRequest(int requestId) async {
+    // Mark as animating out
+    setState(() {
+      _animatingOut.add(requestId);
+    });
+
+    // Wait for animation to complete
+    await Future.delayed(const Duration(milliseconds: 300));
+
     final success = await _friendsRepo.rejectFriendRequest(requestId);
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Request rejected')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('✅ Request rejected')));
+
+      // Remove from animating set
+      _animatingOut.remove(requestId);
+
       _loadPendingRequests();
+    } else if (mounted) {
+      // Remove from animating set if failed
+      setState(() {
+        _animatingOut.remove(requestId);
+      });
     }
   }
 
@@ -154,8 +192,10 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final success =
-                  await _friendsRepo.removeFriend(_currentUserId!, friendId);
+              final success = await _friendsRepo.removeFriend(
+                _currentUserId!,
+                friendId,
+              );
               if (success && mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('✅ Friend removed')),
@@ -215,10 +255,7 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
                   if (username.isNotEmpty)
                     Text(
                       '@$username',
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 13,
-                      ),
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
                     ),
                   if (status == 'friend')
                     const Padding(
@@ -243,7 +280,9 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
                 child: ElevatedButton(
                   onPressed: onPrimaryAction,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: status == 'friend' ? Colors.grey : Colors.blue,
+                    backgroundColor: status == 'friend'
+                        ? Colors.grey
+                        : Colors.blue,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
                   child: Text(
@@ -304,89 +343,107 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
             _isLoadingPending
                 ? const Center(child: CircularProgressIndicator())
                 : _pendingRequests.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.person_add_alt_1,
-                              size: 48,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No pending requests',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.person_add_alt_1,
+                          size: 48,
+                          color: Colors.grey[400],
                         ),
-                      )
-                    : ListView.builder(
-                        itemCount: _pendingRequests.length,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemBuilder: (context, index) {
-                          final request = _pendingRequests[index];
-                          final userId = request['user_id'] as int?;
-                          return _buildUserCard(
-                            user: request,
-                            status: 'pending',
-                            primaryButtonText: 'Accept',
-                            secondaryButtonText: 'Decline',
-                            onPrimaryAction: userId != null
-                                ? () => _acceptRequest(
-                                      request['id'] as int,
-                                      userId,
-                                    )
-                                : null,
-                            onSecondaryAction: () =>
-                                _rejectRequest(request['id'] as int),
-                          );
-                        },
-                      ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No pending requests',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _pendingRequests.length,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemBuilder: (context, index) {
+                      final request = _pendingRequests[index];
+                      final userId = request['user_id'] as int?;
+                      final requestId = request['id'] as int;
+                      final isAnimatingOut = _animatingOut.contains(requestId);
+
+                      return AnimatedOpacity(
+                        opacity: isAnimatingOut ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                          height: isAnimatingOut ? 0 : null,
+                          child: AnimatedSlide(
+                            offset: isAnimatingOut
+                                ? const Offset(1.0, 0.0)
+                                : Offset.zero,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                            child: _buildUserCard(
+                              user: request,
+                              status: 'pending',
+                              primaryButtonText: 'Accept',
+                              secondaryButtonText: 'Decline',
+                              onPrimaryAction: userId != null && !isAnimatingOut
+                                  ? () => _acceptRequest(requestId, userId)
+                                  : null,
+                              onSecondaryAction: !isAnimatingOut
+                                  ? () => _rejectRequest(requestId)
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
 
             // My Friends Tab
             _isLoadingFriends
                 ? const Center(child: CircularProgressIndicator())
                 : _myFriends.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.people_outline,
-                              size: 48,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No friends yet',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 48,
+                          color: Colors.grey[400],
                         ),
-                      )
-                    : ListView.builder(
-                        itemCount: _myFriends.length,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemBuilder: (context, index) {
-                          final friend = _myFriends[index];
-                          final friendId = friend['user_id'] as int?;
-                          return _buildUserCard(
-                            user: friend,
-                            status: 'friend',
-                            primaryButtonText: 'Remove',
-                            onPrimaryAction: friendId != null
-                                ? () => _removeFriend(friendId)
-                                : null,
-                          );
-                        },
-                      ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No friends yet',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _myFriends.length,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemBuilder: (context, index) {
+                      final friend = _myFriends[index];
+                      final friendId = friend['user_id'] as int?;
+                      return _buildUserCard(
+                        user: friend,
+                        status: 'friend',
+                        primaryButtonText: 'Remove',
+                        onPrimaryAction: friendId != null
+                            ? () => _removeFriend(friendId)
+                            : null,
+                      );
+                    },
+                  ),
 
             // Find Friends Tab
             Column(
@@ -432,9 +489,9 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
             padding: const EdgeInsets.all(16),
             child: Text(
               'Suggested Friends',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           if (_suggestedFriends.isEmpty)
@@ -474,49 +531,48 @@ class _FriendsPageState extends State<FriendsPage> with SingleTickerProviderStat
     return _isSearching
         ? const Center(child: CircularProgressIndicator())
         : _searchResults.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Text(
-                    'No users found',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ),
-              )
-            : ListView.builder(
-                itemCount: _searchResults.length,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemBuilder: (context, index) {
-                  final user = _searchResults[index];
-                  final status = user['friend_status'] as String? ?? 'none';
-                  final userId = user['user_id'] as int?;
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                'No users found',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+          )
+        : ListView.builder(
+            itemCount: _searchResults.length,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemBuilder: (context, index) {
+              final user = _searchResults[index];
+              final status = user['friend_status'] as String? ?? 'none';
+              final userId = user['user_id'] as int?;
 
-                  String buttonText = 'Add';
-                  if (status == 'friend') {
-                    buttonText = 'Remove';
-                  } else if (status == 'request_sent') {
-                    buttonText = 'Pending';
-                  } else if (status == 'request_pending') {
-                    buttonText = 'Respond';
-                  }
+              String buttonText = 'Add';
+              if (status == 'friend') {
+                buttonText = 'Remove';
+              } else if (status == 'request_sent') {
+                buttonText = 'Pending';
+              } else if (status == 'request_pending') {
+                buttonText = 'Respond';
+              }
 
-                  VoidCallback? onAction;
-                  if (userId != null) {
-                    if (status == 'friend') {
-                      onAction = () => _removeFriend(userId);
-                    } else if (status == 'none') {
-                      onAction = () => _sendFriendRequest(userId);
-                    }
-                  }
+              VoidCallback? onAction;
+              if (userId != null) {
+                if (status == 'friend') {
+                  onAction = () => _removeFriend(userId);
+                } else if (status == 'none') {
+                  onAction = () => _sendFriendRequest(userId);
+                }
+              }
 
-                  return _buildUserCard(
-                    user: user,
-                    status: status,
-                    primaryButtonText: buttonText,
-                    onPrimaryAction:
-                        status == 'request_sent' ? null : onAction,
-                  );
-                },
+              return _buildUserCard(
+                user: user,
+                status: status,
+                primaryButtonText: buttonText,
+                onPrimaryAction: status == 'request_sent' ? null : onAction,
               );
+            },
+          );
   }
 }

@@ -16,8 +16,9 @@ const uploadsDir = path.join(__dirname, '..', 'uploads');
 const avatarsDir = path.join(uploadsDir, 'avatars');
 const qrcodesDir = path.join(uploadsDir, 'qrcodes');
 const proofsDir = path.join(uploadsDir, 'proofs');
+const chatDir = path.join(uploadsDir, 'chat');
 
-[avatarsDir, qrcodesDir, proofsDir].forEach(dir => {
+[avatarsDir, qrcodesDir, proofsDir, chatDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -42,6 +43,10 @@ const createStorage = (folderName) => {
 const uploadAvatars = multer({ storage: createStorage('avatars') });
 const uploadQrcodes = multer({ storage: createStorage('qrcodes') });
 const uploadProofs = multer({ storage: createStorage('proofs') });
+const uploadChat = multer({ 
+  storage: createStorage('chat'),
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit for videos
+});
 
 // Routes
 app.post('/api/upload/avatar', uploadAvatars.single('file'), (req, res) => {
@@ -86,6 +91,18 @@ app.post('/api/upload/proof', uploadProofs.single('file'), (req, res) => {
   });
 });
 
+app.post('/api/upload/chat', uploadChat.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  console.log(`✅ Chat media uploaded: ${req.file.filename}`);
+  res.json({ 
+    success: true, 
+    filename: req.file.filename,
+    mimeType: req.file.mimetype
+  });
+});
+
 // Serve uploaded files
 app.use('/uploads', express.static(uploadsDir));
 
@@ -100,4 +117,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📁 Avatars saved to: ${avatarsDir}`);
   console.log(`📁 QR Codes saved to: ${qrcodesDir}`);
   console.log(`📁 Proofs saved to: ${proofsDir}`);
+  console.log(`📁 Chat media saved to: ${chatDir}`);
 });

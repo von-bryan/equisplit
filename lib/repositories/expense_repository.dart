@@ -21,7 +21,15 @@ class ExpenseRepository {
         '''INSERT INTO equisplit.expenses 
            (expense_name, description, total_amount, created_by, currency, status, expense_type) 
            VALUES (?, ?, ?, ?, ?, ?, ?)''',
-        [expenseName, description, totalAmount, createdBy, currency, status, expenseType],
+        [
+          expenseName,
+          description,
+          totalAmount,
+          createdBy,
+          currency,
+          status,
+          expenseType,
+        ],
       );
       return await _db.getLastInsertId();
     } catch (e) {
@@ -114,7 +122,9 @@ class ExpenseRepository {
   }
 
   /// Get all participants of an expense
-  Future<List<Map<String, dynamic>>> getExpenseParticipants(int expenseId) async {
+  Future<List<Map<String, dynamic>>> getExpenseParticipants(
+    int expenseId,
+  ) async {
     try {
       return await _db.query(
         '''SELECT ep.*, u.name, u.username, ua.image_path as avatar_path
@@ -176,7 +186,9 @@ class ExpenseRepository {
   }
 
   /// Get all transactions for an expense
-  Future<List<Map<String, dynamic>>> getExpenseTransactions(int expenseId) async {
+  Future<List<Map<String, dynamic>>> getExpenseTransactions(
+    int expenseId,
+  ) async {
     try {
       return await _db.query(
         '''SELECT t.*, 
@@ -209,7 +221,7 @@ class ExpenseRepository {
   }) async {
     int maxRetries = 3;
     int currentRetry = 0;
-    
+
     while (currentRetry < maxRetries) {
       try {
         await _db.execute(
@@ -222,8 +234,10 @@ class ExpenseRepository {
         return true;
       } catch (e) {
         currentRetry++;
-        print('❌ Error adding proof of payment (Attempt $currentRetry/$maxRetries): $e');
-        
+        print(
+          '❌ Error adding proof of payment (Attempt $currentRetry/$maxRetries): $e',
+        );
+
         if (currentRetry < maxRetries) {
           // Wait before retrying
           await Future.delayed(Duration(milliseconds: 500 * currentRetry));
@@ -279,17 +293,17 @@ class ExpenseRepository {
            WHERE proof_id = ?''',
         [approvedBy, proofId],
       );
-      
+
       // Also mark transaction as paid
       final proof = await _db.queryOne(
         'SELECT transaction_id FROM equisplit.proof_of_payment WHERE proof_id = ?',
         [proofId],
       );
-      
+
       if (proof != null) {
         await markTransactionAsPaid(proof['transaction_id'] as int);
       }
-      
+
       return true;
     } catch (e) {
       print('Error approving proof of payment: $e');
@@ -334,7 +348,9 @@ class ExpenseRepository {
   }
 
   /// Get pending transactions for a user (payments they need to make)
-  Future<List<Map<String, dynamic>>> getPendingPaymentsForUser(int userId) async {
+  Future<List<Map<String, dynamic>>> getPendingPaymentsForUser(
+    int userId,
+  ) async {
     try {
       return await _db.query(
         '''SELECT t.*, 
@@ -358,7 +374,9 @@ class ExpenseRepository {
   }
 
   /// Get pending payments where user is the payee (others owe them)
-  Future<List<Map<String, dynamic>>> getPendingPaymentsOwedToUser(int userId) async {
+  Future<List<Map<String, dynamic>>> getPendingPaymentsOwedToUser(
+    int userId,
+  ) async {
     try {
       return await _db.query(
         '''SELECT t.*, 
@@ -408,7 +426,9 @@ class ExpenseRepository {
   }
 
   /// Get only approved transactions for payment history display
-  Future<List<Map<String, dynamic>>> getApprovedUserTransactions(int userId) async {
+  Future<List<Map<String, dynamic>>> getApprovedUserTransactions(
+    int userId,
+  ) async {
     try {
       return await _db.query(
         '''SELECT t.*, 
@@ -435,7 +455,9 @@ class ExpenseRepository {
   }
 
   /// Get paid transactions for a user (payments I have made)
-  Future<List<Map<String, dynamic>>> getPaidTransactionsForUser(int userId) async {
+  Future<List<Map<String, dynamic>>> getPaidTransactionsForUser(
+    int userId,
+  ) async {
     try {
       return await _db.query(
         '''SELECT t.*, 
@@ -463,7 +485,7 @@ class ExpenseRepository {
                   u1.name as payer_name,
                   u2.name as payee_name,
                   e.expense_name,
-                  p.proof_id, p.approval_status, p.uploaded_date,
+                  p.proof_id, p.approval_status, p.uploaded_date, p.approved_date,
                   COALESCE(p.approval_status, t.status) as proof_status,
                   CASE WHEN t.payer_id = ? THEN 'sent' ELSE 'received' END as payment_type
            FROM equisplit.transactions t
@@ -473,7 +495,7 @@ class ExpenseRepository {
            LEFT JOIN equisplit.proof_of_payment p ON t.transaction_id = p.transaction_id
            WHERE (t.payer_id = ? OR t.payee_id = ?)
            AND (t.status = 'paid' OR p.approval_status = 'approved')
-           ORDER BY COALESCE(t.paid_date, p.uploaded_date, t.created_date) DESC''',
+           ORDER BY COALESCE(p.approved_date, t.paid_date, p.uploaded_date, t.created_date) DESC''',
         [userId, userId, userId],
       );
     } catch (e) {
@@ -483,7 +505,9 @@ class ExpenseRepository {
   }
 
   /// Get expense status with paid amount and remaining balance
-  Future<Map<String, dynamic>?> getExpenseStatusWithPaidAmount(int expenseId) async {
+  Future<Map<String, dynamic>?> getExpenseStatusWithPaidAmount(
+    int expenseId,
+  ) async {
     try {
       final result = await _db.query(
         '''SELECT e.expense_id, e.expense_name, e.total_amount,
@@ -501,7 +525,7 @@ class ExpenseRepository {
       print('Error fetching expense status: $e');
       return null;
     }
-  }  // ============ USER QR CODES TABLE ============
+  } // ============ USER QR CODES TABLE ============
 
   /// Add QR code for user
   Future<bool> addUserQRCode({
@@ -578,7 +602,7 @@ class ExpenseRepository {
            WHERE user_id = ?''',
         [userId],
       );
-      
+
       // Then set the selected one as default
       await _db.execute(
         '''UPDATE equisplit.user_qr_codes 
@@ -691,20 +715,21 @@ class ExpenseRepository {
       for (var participant in participants) {
         String userId = participant['user_id'].toString();
         userIds.add(userId);
-        contributions[userId] =
-            (participant['contribution_amount'] as num).toDouble();
+        contributions[userId] = (participant['contribution_amount'] as num)
+            .toDouble();
       }
 
       // Get expense type
       String expenseType = (expense['expense_type'] as String?) ?? 'evenly';
 
       // Calculate transactions using splitting service based on type
-      List<Transaction> transactions = SplittingService.calculateTransactionsByType(
-        userIds,
-        contributions,
-        (expense['total_amount'] as num).toDouble(),
-        expenseType,
-      );
+      List<Transaction> transactions =
+          SplittingService.calculateTransactionsByType(
+            userIds,
+            contributions,
+            (expense['total_amount'] as num).toDouble(),
+            expenseType,
+          );
 
       // Save all transactions to database
       for (var transaction in transactions) {
@@ -747,8 +772,7 @@ class ExpenseRepository {
         'items': items,
         'participant_count': participants.length,
         'transaction_count': transactions.length,
-        'paid_count':
-            transactions.where((t) => t['status'] == 'paid').length,
+        'paid_count': transactions.where((t) => t['status'] == 'paid').length,
       };
     } catch (e) {
       print('Error fetching expense summary: $e');
@@ -791,10 +815,23 @@ class ExpenseRepository {
            WHERE ep.user_id = ?
            GROUP BY e.expense_id
            ORDER BY e.expense_id DESC''',
-        [userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId],
+        [
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+        ],
       );
     } catch (e) {
       print('Error fetching expenses user joined: $e');
       return [];
     }
-  }}
+  }
+}

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:equisplit/repositories/expense_repository.dart';
 import 'package:equisplit/repositories/user_repository.dart';
 import 'package:equisplit/repositories/friends_repository.dart';
+import 'package:equisplit/repositories/messaging_repository.dart';
 import 'package:equisplit/services/image_storage_service.dart';
 import 'dart:io';
 import 'dart:async';
@@ -27,87 +28,65 @@ class _DashboardPageState extends State<DashboardPage>
   bool _isScrolled = false;
   int _displayedPaymentHistoryCount = 4; // Show 4 items initially
   final int _paymentHistoryPageSize = 4; // Load 4 more items per click
-  
-  // List of funny quotes about money and expenses
+
+  // List of funny Tagalog jokes
   final List<String> _funnyQuotes = [
-    'Money can\'t buy happiness, but it can buy pizza 🍕',
-    'I\'m not broke, I\'m just pre-rich!',
-    'My wallet and I are distant 😅',
-    'Scarecrow won? Outstanding field! 🌾',
-    'Why no atoms trust? They make up! 🧪',
-    'Reading about glue - can\'t put down 📚',
-    'Mathematician afraid of negatives? 🔢',
-    'Coffee filed report? Got mugged! ☕',
-    'I hate facial hair. It grew on me. 🧔',
-    'Fake noodle? Impasta! 🍝',
-    'Why eggs don\'t joke? Crack up! 🥚',
-    'Reading "Blindness" - can\'t see end 👨‍🦯',
-    'Wall to wall: Meet corner! 🧱',
-    'Bike fell over? Two-tired! 🚲',
-    'Sushi? A little fishy 🍣',
-    'Golfer pants? Hole in one! ⛳',
-    'Switzerland flag? Big plus! 🇨🇭',
-    'Skeletons fight? No guts! 💀',
-    'Sleeping bull? Dozer! 😴',
-    'Math on floor? No tables! 📐',
-    'Sun went away? It dawned on me ☀️',
-    'Bear no teeth? Gummy bear! 🐻',
-    'Farm secrets? Corn hears! 🌽',
-    'Orange parrot sound? Carrot! 🥕',
-    'Eyebrows high? She looked surprised! 👁️',
-    'Cards jungle? Cheetahs! 🐆',
-    'Bowtie fish? So-fish-ticated! 🎩',
-    'Invisible man job? Can\'t see! 👁️',
-    'Bicycle style? Attire! 🚴',
-    'Chemistry joke? No reaction! ⚗️',
-    'Ocean beach? Waved! 🌊',
-    'No anger appearance? Nobody wants! 😤',
-    'Magic boat? Magician! ✨',
-    'Cookie doctor? Crumbly! 🍪',
-    'Dentist time? Tooth-hurty! 🦷',
-    'Scientists atoms? Up to something! 🤓',
-    'Grape stepped? Little wine! 🍇',
-    'Music teacher jail? Treble! 🎵',
-    'Ocean eagle? Waved aerially! 🦅',
-    'Fog yesterday? Mist! 🌫️',
-    'Eggs taxes? Crack pressure! 💰',
-    'Salt pepper? Look sharp! 🧂',
-    'Money blender? Liquid assets! 💵',
-    'Dog magician? Labracadabrador! 🐕‍🦺',
-    'Scientists beach? Tide time! 🏖️',
-    'Hat to hat? Stay corner! 🎩',
-    'Elephants trees? Great hiders! 🐘',
-    'Cheese yours? Nacho cheese! 🧀',
-    'Phone school? Web connection! 📱',
-    'Tree lumberjack? Wood stop? 🌳',
-    'Oysters pearls? Shellfish! 🦪',
-    'Snake pie? Python! 🐍',
-    'Cookie crumbly? Doctor! 🍪',
-    'Baby corn mama? Popcorn! 🌽',
-    'Eggs lonely? Crack jokes! 🥚',
-    'Boomerang return? Stick! 🪵',
-    'Scarecrow comedian? Stitches! 😂',
-    'Pen pencil? Look sharp! ✏️',
-    'Antennas marry? Reception! 📡',
-    'Fish crown? King fish! 👑',
-    'Sun school? Get brighter! ☀️',
-    'Snail slug? Nudist! 🐌',
-    'Staplers poker? Always bent! 📎',
-    'Pencil broken? Pointless! ✏️',
-    'Math book sad? Too many problems! 📕',
-    'Thermometer degrees? More! 🌡️',
-    'Monsters jungle cards? Cheetahs! 🎴',
-    'Kangaroo camouflage? Spotted! 🦘',
-    'Clock detention? Tocking! ⏰',
-    'Ocean wave? Waved! 🌊',
-    'Electric eels hide? Shocking! ⚡',
-    'Fish no eyes? Fsh! 🐟',
-    'Banana doctor? Peeling bad! 🍌',
-    'Wall corner bro? Meet there! 🧱',
-    'Lions lonely? Pride! 🦁',
+    'Ano ang tawag sa pera na laging tulog? 💸 Pera-tulog!',
+    'Hindi ako walang pera, nag-iimpok lang! 💰',
+    'Ang pitaka ko at ako, LDR na 😅',
+    'Bakit malungkot ang saging? 🍌 Kasi minsan lang siya maging prime!',
+    'Anong hayop ang laging huli? 🐢 Yung pagong, kasi slow!',
+    'Knock knock! Sino yan? 🚪 Si wallet, nagpaalam na lumabas!',
+    'Ano ang paboritong prutas ng pera? 💵 Grapes, kasi may bunches!',
+    'Bakit laging busy ang calculator? 🧮 Kasi maraming problema!',
+    'Anong klaseng tubig hindi pwedeng inumin? 💧 Yung tubig-utang!',
+    'Bakit malungkot ang libro? 📚 Kasi puro problema ang laman!',
+    'Ano ang pinakamahirap na subject? 💸 Yung Math-inagastos!',
+    'Bakit masaya ang pera sa banko? 🏦 Kasi may interest!',
+    'Anong color ng wallet pag walang laman? 👛 E-di white, wala nang kulay!',
+    'Bakit laging gutom ang pera? 💰 Kasi lagi siyang ginagastos!',
+    'Ano ang paborito ng pera? 🎵 Yung kanta ni Ed Sheeran - "Shape of You-tang"!',
+    'Bakit masipag ang ATM? 🏧 Kasi laging nag-wo-work overtime!',
+    'Anong hayop ang mahilig mag-utang? 🐕 Aso, kasi asong ulol!',
+    'Bakit hindi natutulog ang pera? 💵 Kasi gumagala sa mundo!',
+    'Ano ang favorite drink ng mayaman? ☕ Kape-ra!',
+    'Bakit laging stress ang wallet? 👝 Kasi laging pinapagastos!',
+    'Anong subject ang paborito ng pera? 📊 Economics, syempre!',
+    'Bakit masaya ang coins? 🪙 Kasi palaging nag-ce-celebrate!',
+    'Ano ang tawag sa pera sa freezer? 🧊 Frozen assets!',
+    'Bakit mahirap mag-save? 🐷 Kasi madaming sale!',
+    'Anong hayop ang mayaman? 🦁 Lion, kasi may pride!',
+    'Bakit laging late ang pera? ⏰ Kasi traffic sa bank!',
+    'Ano ang favorite song ng broke? 🎤 "Walang Pera" by Juan Karlos!',
+    'Bakit masayang mag-shopping? 🛍️ Kasi instant happiness!',
+    'Anong math ang mahirap? ➖ Yung subtract sa pera!',
+    'Bakit laging busy ang bayad? 💳 Kasi maraming utang!',
+    'Ano ang favorite movie ng wallet? 🎬 "Gone in 60 Seconds"!',
+    'Bakit malungkot ang ATM card? 💳 Kasi laging nag-o-overthink!',
+    'Anong prutas ang mahilig mag-utang? 🍊 Orange, kasi "owe"-range!',
+    'Bakit masaya ang grocery? 🛒 Kasi puno ng sale!',
+    'Ano ang favorite ng pera sa gym? 💪 Yung bench-press, press ng pera!',
+    'Bakit laging pagod ang budget? 📉 Kasi laging lumalampas!',
+    'Anong klase ng ulan ang ayaw ng pera? 🌧️ Yung ulan ng gastos!',
+    'Bakit masarap mag-kape? ☕ Kasi sagot ng kaibigan!',
+    'Ano ang tawag sa pera na laging nawawala? 👻 Ghost money!',
+    'Bakit laging nega ang bills? 📄 Kasi puro bayarin!',
+    'Anong flavor ng ice cream paborito ng broke? 🍦 Hopia, na may pera!',
+    'Bakit masaya ang sale? 🏷️ Kasi discount everywhere!',
+    'Ano ang favorite sport ng pera? 🏀 Basketball, kasi may bouncing!',
+    'Bakit laging stress ang student? 📚 Kasi utang pa ang libro!',
+    'Anong hayop ang laging may pera? 🐷 Baboy, kasi may alkansya!',
+    'Bakit masarap kumain sa labas? 🍔 Kasi hindi mo luto!',
+    'Ano ang tawag sa pera sa internet? 💻 E-cash!',
+    'Bakit laging masaya ang birthday? 🎂 Kasi may regalo!',
+    'Anong prutas ang mahilig mag-ipon? 🍇 Grapes, kasi bunches!',
+    'Bakit laging busy ang online shopping? 🛒 Kasi 24/7!',
+    'Ano ang favorite dessert ng wallet? 🍰 Emptycake!',
   ];
-  
+
   late String _selectedQuote;
+  int _unreadMessageCount = 0;
+  int _pendingFriendRequestCount = 0;
 
   @override
   void initState() {
@@ -120,6 +99,7 @@ class _DashboardPageState extends State<DashboardPage>
     WidgetsBinding.instance.addObserver(this);
     _refreshPendingProofs();
     _loadPaymentHistory();
+    _loadNotificationCounts();
   }
 
   void _onScroll() {
@@ -145,6 +125,7 @@ class _DashboardPageState extends State<DashboardPage>
     if (state == AppLifecycleState.resumed) {
       // Refresh when app comes back to foreground
       _refreshPendingProofs();
+      _loadNotificationCounts();
     }
   }
 
@@ -156,6 +137,26 @@ class _DashboardPageState extends State<DashboardPage>
   void _loadPaymentHistory() {
     final userId = widget.user?['user_id'] ?? 1;
     _paymentHistoryFuture = _expenseRepo.getPaymentHistory(userId);
+  }
+
+  Future<void> _loadNotificationCounts() async {
+    final userId = widget.user?['user_id'] ?? 1;
+    try {
+      final unreadCount = await MessagingRepository().getUnreadMessageCount(
+        userId,
+      );
+      final friendRequestCount = await FriendsRepository()
+          .getPendingRequestCount(userId);
+
+      if (mounted) {
+        setState(() {
+          _unreadMessageCount = unreadCount;
+          _pendingFriendRequestCount = friendRequestCount;
+        });
+      }
+    } catch (e) {
+      print('Error loading notification counts: $e');
+    }
   }
 
   void _loadMorePaymentHistory() {
@@ -177,184 +178,67 @@ class _DashboardPageState extends State<DashboardPage>
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
-          // Compact App Bar with Logo
-          SliverAppBar(
-            expandedHeight: 70,
-            floating: false,
-            pinned: true,
-            backgroundColor: Colors.white,
-            elevation: 2,
-            automaticallyImplyLeading: false,
-            title: _isScrolled
-                ? Text(
-                    _selectedQuote,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  )
-                : null,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 45,
-                            height: 45,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFF),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.savings,
-                              size: 28,
-                              color: Color(0xFF1976D2),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'EquiSplit',
-                            style: TextStyle(
-                              color: Color(0xFF1976D2),
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+            // Compact App Bar with Logo
+            SliverAppBar(
+              expandedHeight: 70,
+              floating: false,
+              pinned: true,
+              backgroundColor: Colors.white,
+              elevation: 2,
+              automaticallyImplyLeading: false,
+              title: _isScrolled
+                  ? Text(
+                      _selectedQuote,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              PopupMenuButton(
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    child: const Row(
-                      children: [
-                        Icon(Icons.person),
-                        SizedBox(width: 8),
-                        Text('Profile'),
-                      ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : null,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  decoration: const BoxDecoration(color: Colors.white),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
                     ),
-                    onTap: () {
-                      Navigator.pushNamed(context, '/profile', arguments: {
-                        'user': widget.user,
-                        'currentUser': widget.user,
-                      });
-                    },
-                  ),
-                  PopupMenuItem(
-                    child: const Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.settings),
-                        SizedBox(width: 8),
-                        Text('Settings'),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.pushNamed(context, '/settings');
-                    },
-                  ),
-                  PopupMenuItem(
-                    child: const Row(
-                      children: [
-                        Icon(Icons.logout),
-                        SizedBox(width: 8),
-                        Text('Logout'),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.pushReplacementNamed(context, '/login');
-                    },
-                  ),
-                  PopupMenuItem(
-                    child: const Row(
-                      children: [
-                        Icon(Icons.bug_report),
-                        SizedBox(width: 8),
-                        Text('Debug Info'),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.pushNamed(context, '/debug');
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          // Horizontally Scrollable People List
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'People',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
-                          ),
-                        ),
                         Row(
                           children: [
-                            TextButton.icon(
-                              icon: const Icon(Icons.message, size: 18),
-                              label: const Text('Messages'),
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/messages',
-                                  arguments: widget.user,
-                                );
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF1976D2),
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                            Container(
+                              width: 45,
+                              height: 45,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFF),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.savings,
+                                size: 28,
+                                color: Color(0xFF1976D2),
                               ),
                             ),
-                            TextButton.icon(
-                              icon: const Icon(Icons.people, size: 18),
-                              label: const Text('Friends'),
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/users',
-                                  arguments: widget.user,
-                                );
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF1976D2),
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'EquiSplit',
+                              style: TextStyle(
+                                color: Color(0xFF1976D2),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
@@ -362,367 +246,546 @@ class _DashboardPageState extends State<DashboardPage>
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 110,
-                    child: FutureBuilder<List<Map<String, dynamic>>>(
-                      future: FriendsRepository().getMutualFriends(userId),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
-                        
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return Center(
-                            child: Text(
-                              'No friends yet',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          );
-                        }
-                        
-                        final users = snapshot.data!;
-                        
-                        return ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: users.length,
-                          itemBuilder: (context, index) {
-                            final user = users[index];
-                            final userName = user['name'] ?? 'User';
-                            final avatarPath = user['avatar_path'] as String?;
-                            
-                            return GestureDetector(
-                              onTap: () {
-                                // Pass currentUser so ProfilePage knows if it's own profile
-                                Navigator.pushNamed(
-                                  context,
-                                  '/profile',
-                                  arguments: {
-                                    'user': user,
-                                    'currentUser': widget.user,
-                                  },
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.only(right: 12),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.grey[300],
-                                        border: Border.all(
-                                          color: const Color(0xFF1976D2),
-                                          width: 2.5,
-                                        ),
-                                        image: avatarPath != null && avatarPath.isNotEmpty
-                                            ? DecorationImage(
-                                                image: avatarPath.startsWith('/uploads/')
-                                                    ? NetworkImage(ImageStorageService.getImageUrl(avatarPath))
-                                                    : FileImage(File(avatarPath)),
-                                                fit: BoxFit.cover,
-                                              )
-                                            : null,
-                                      ),
-                                      child: avatarPath == null || avatarPath.isEmpty
-                                          ? Icon(
-                                              Icons.person,
-                                              color: Colors.grey[600],
-                                              size: 36,
-                                            )
-                                          : null,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    SizedBox(
-                                      width: 90,
-                                      child: Text(
-                                        userName,
-                                        textAlign: TextAlign.center,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
+                ),
+              ),
+              actions: [
+                PopupMenuButton(
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      child: const Row(
+                        children: [
+                          Icon(Icons.person),
+                          SizedBox(width: 8),
+                          Text('Profile'),
+                        ],
+                      ),
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          '/profile',
+                          arguments: {
+                            'user': widget.user,
+                            'currentUser': widget.user,
                           },
                         );
                       },
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Content
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Total Expenses Section
-                  const Text(
-                    'Expenses',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                    PopupMenuItem(
+                      child: const Row(
+                        children: [
+                          Icon(Icons.settings),
+                          SizedBox(width: 8),
+                          Text('Settings'),
+                        ],
+                      ),
+                      onTap: () {
+                        Navigator.pushNamed(context, '/settings');
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _expenseRepo.getAllUserTransactions(userId),
-                    builder: (context, snapshot) {
-                      double owesMe = 0;
-                      double iOwe = 0;
-                      double paidToMe = 0;
-                      double iPaid = 0;
-                      double netAmount = 0;
-                      bool isPositive = false;
+                    PopupMenuItem(
+                      child: const Row(
+                        children: [
+                          Icon(Icons.logout),
+                          SizedBox(width: 8),
+                          Text('Logout'),
+                        ],
+                      ),
+                      onTap: () {
+                        Navigator.pushReplacementNamed(context, '/login');
+                      },
+                    ),
+                    PopupMenuItem(
+                      child: const Row(
+                        children: [
+                          Icon(Icons.bug_report),
+                          SizedBox(width: 8),
+                          Text('Debug Info'),
+                        ],
+                      ),
+                      onTap: () {
+                        Navigator.pushNamed(context, '/debug');
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
 
-                      if (snapshot.hasData && snapshot.data != null) {
-                        for (var transaction in snapshot.data!) {
-                          final payerId = transaction['payer_id'] as int;
-                          final payeeId = transaction['payee_id'] as int;
-                          final amount = (transaction['amount'] as num).toDouble();
-                          final isProofApproved = (transaction['is_proof_approved'] as int?) ?? 0;
-                          final isTransactionPaid = (transaction['is_transaction_paid'] as int?) ?? 0;
-                          final isPaid = isProofApproved == 1 || isTransactionPaid == 1;
-
-                          if (payeeId == userId) {
-                            // Someone owes me money
-                            owesMe += amount;
-                            // Subtract if already paid or approved
-                            if (isPaid) {
-                              paidToMe += amount;
-                            }
-                          }
-                          if (payerId == userId) {
-                            // I owe someone money
-                            iOwe += amount;
-                            // Subtract if already paid or approved
-                            if (isPaid) {
-                              iPaid += amount;
-                            }
-                          }
-                        }
-
-                        // Calculate remaining amounts (after deducting paid)
-                        final remainingOwedToMe = owesMe - paidToMe;
-                        final remainingIOwe = iOwe - iPaid;
-
-                        // Calculate net amount based on remaining
-                        if (remainingOwedToMe >= remainingIOwe) {
-                          netAmount = remainingOwedToMe - remainingIOwe;
-                          isPositive = true;
-                        } else {
-                          netAmount = remainingIOwe - remainingOwedToMe;
-                          isPositive = false;
-                        }
-                      }
-
-                      return GestureDetector(
-                        onTap: () {
-                          _showDebtSummary(userId);
-                        },
-                        child: Card(
-                          elevation: 6,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: netAmount > 0.01 && isPositive
-                                    ? [
-                                        const Color(0xFF1976D2),
-                                        const Color(0xFF0288D1),
-                                      ]
-                                    : netAmount > 0.01 && !isPositive
-                                        ? [
-                                            const Color(0xFFD32F2F),
-                                            const Color(0xFFC62828),
-                                          ]
-                                        : [
-                                            const Color(0xFF4CAF50),
-                                            const Color(0xFF388E3C),
-                                          ],
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: netAmount > 0.01 && isPositive
-                                      ? const Color(0xFF1976D2).withValues(alpha: 0.3)
-                                      : netAmount > 0.01 && !isPositive
-                                          ? const Color(0xFFD32F2F).withValues(alpha: 0.3)
-                                          : const Color(0xFF4CAF50).withValues(alpha: 0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
+            // Horizontally Scrollable People List
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 0,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'People',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[800],
                             ),
-                            padding: const EdgeInsets.all(20.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      netAmount.abs() < 0.01 ? 'Settlement Status' : 'Settlement Balance',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        netAmount.abs() < 0.01
-                                            ? '✓ Settled'
-                                            : (netAmount > 0 ? 'Receive' : 'Pay'),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                          ),
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                icon: _buildNotificationBadge(
+                                  const Icon(Icons.message, size: 18),
+                                  _unreadMessageCount,
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  '₱${netAmount.abs().toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 40,
-                                    fontWeight: FontWeight.bold,
+                                label: const Text('Messages'),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/messages',
+                                    arguments: widget.user,
+                                  ).then((_) => _loadNotificationCounts());
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1976D2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
                                   ),
                                 ),
-                                const SizedBox(height: 16),
-                                // Two-column breakdown
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Remaining to Receive',
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(alpha: 0.7),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '₱${(owesMe - paidToMe).toStringAsFixed(2)}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      width: 1,
-                                      height: 40,
-                                      color: Colors.white.withValues(alpha: 0.3),
-                                    ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            'Remaining to Pay',
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(alpha: 0.7),
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '₱${(iOwe - iPaid).toStringAsFixed(2)}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                              ),
+                              TextButton.icon(
+                                icon: _buildNotificationBadge(
+                                  const Icon(Icons.people, size: 18),
+                                  _pendingFriendRequestCount,
                                 ),
-                              ],
-                            ),
+                                label: const Text('Friends'),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/users',
+                                    arguments: widget.user,
+                                  ).then((_) => _loadNotificationCounts());
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1976D2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 32),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 110,
+                      child: FutureBuilder<List<Map<String, dynamic>>>(
+                        future: FriendsRepository().getMutualFriends(userId),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
 
-                  // Tabs for Payment History and Pending Approvals
-                  Material(
-                    color: Colors.white,
-                    child: TabBar(
-                      controller: _tabController,
-                      labelColor: const Color(0xFF1976D2),
-                      unselectedLabelColor: Colors.grey,
-                      indicatorColor: const Color(0xFF1976D2),
-                      indicatorWeight: 3,
-                      tabs: const [
-                        Tab(text: 'Pending Approvals'),
-                        Tab(text: 'Payment History'),
-                      ],
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return Center(
+                              child: Text(
+                                'No friends yet',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            );
+                          }
+
+                          final users = snapshot.data!;
+
+                          return ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: users.length,
+                            itemBuilder: (context, index) {
+                              final user = users[index];
+                              final userName = user['name'] ?? 'User';
+                              final avatarPath = user['avatar_path'] as String?;
+
+                              return GestureDetector(
+                                onTap: () {
+                                  // Pass currentUser so ProfilePage knows if it's own profile
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/profile',
+                                    arguments: {
+                                      'user': user,
+                                      'currentUser': widget.user,
+                                    },
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        width: 80,
+                                        height: 80,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.grey[300],
+                                          border: Border.all(
+                                            color: const Color(0xFF1976D2),
+                                            width: 2.5,
+                                          ),
+                                          image:
+                                              avatarPath != null &&
+                                                  avatarPath.isNotEmpty
+                                              ? DecorationImage(
+                                                  image:
+                                                      avatarPath.startsWith(
+                                                        '/uploads/',
+                                                      )
+                                                      ? NetworkImage(
+                                                          ImageStorageService.getImageUrl(
+                                                            avatarPath,
+                                                          ),
+                                                        )
+                                                      : FileImage(
+                                                          File(avatarPath),
+                                                        ),
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : null,
+                                        ),
+                                        child:
+                                            avatarPath == null ||
+                                                avatarPath.isEmpty
+                                            ? Icon(
+                                                Icons.person,
+                                                color: Colors.grey[600],
+                                                size: 36,
+                                              )
+                                            : null,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      SizedBox(
+                                        width: 90,
+                                        child: Text(
+                                          userName,
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 280,
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        // Pending Approvals Tab
-                        _buildPendingApprovalsTab(),
-                        // Payment History Tab
-                        _buildPaymentHistoryTab(),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 100),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+
+            // Content
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Total Expenses Section
+                    const Text(
+                      'Expenses',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    FutureBuilder<List<Map<String, dynamic>>>(
+                      future: _expenseRepo.getAllUserTransactions(userId),
+                      builder: (context, snapshot) {
+                        double owesMe = 0;
+                        double iOwe = 0;
+                        double paidToMe = 0;
+                        double iPaid = 0;
+                        double netAmount = 0;
+                        bool isPositive = false;
+
+                        if (snapshot.hasData && snapshot.data != null) {
+                          for (var transaction in snapshot.data!) {
+                            final payerId = transaction['payer_id'] as int;
+                            final payeeId = transaction['payee_id'] as int;
+                            final amount = (transaction['amount'] as num)
+                                .toDouble();
+                            final isProofApproved =
+                                (transaction['is_proof_approved'] as int?) ?? 0;
+                            final isTransactionPaid =
+                                (transaction['is_transaction_paid'] as int?) ??
+                                0;
+                            final isPaid =
+                                isProofApproved == 1 || isTransactionPaid == 1;
+
+                            if (payeeId == userId) {
+                              // Someone owes me money
+                              owesMe += amount;
+                              // Subtract if already paid or approved
+                              if (isPaid) {
+                                paidToMe += amount;
+                              }
+                            }
+                            if (payerId == userId) {
+                              // I owe someone money
+                              iOwe += amount;
+                              // Subtract if already paid or approved
+                              if (isPaid) {
+                                iPaid += amount;
+                              }
+                            }
+                          }
+
+                          // Calculate remaining amounts (after deducting paid)
+                          final remainingOwedToMe = owesMe - paidToMe;
+                          final remainingIOwe = iOwe - iPaid;
+
+                          // Calculate net amount based on remaining
+                          if (remainingOwedToMe >= remainingIOwe) {
+                            netAmount = remainingOwedToMe - remainingIOwe;
+                            isPositive = true;
+                          } else {
+                            netAmount = remainingIOwe - remainingOwedToMe;
+                            isPositive = false;
+                          }
+                        }
+
+                        return GestureDetector(
+                          onTap: () {
+                            _showDebtSummary(userId);
+                          },
+                          child: Card(
+                            elevation: 6,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: netAmount > 0.01 && isPositive
+                                      ? [
+                                          const Color(0xFF1976D2),
+                                          const Color(0xFF0288D1),
+                                        ]
+                                      : netAmount > 0.01 && !isPositive
+                                      ? [
+                                          const Color(0xFFD32F2F),
+                                          const Color(0xFFC62828),
+                                        ]
+                                      : [
+                                          const Color(0xFF4CAF50),
+                                          const Color(0xFF388E3C),
+                                        ],
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: netAmount > 0.01 && isPositive
+                                        ? const Color(
+                                            0xFF1976D2,
+                                          ).withValues(alpha: 0.3)
+                                        : netAmount > 0.01 && !isPositive
+                                        ? const Color(
+                                            0xFFD32F2F,
+                                          ).withValues(alpha: 0.3)
+                                        : const Color(
+                                            0xFF4CAF50,
+                                          ).withValues(alpha: 0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.all(20.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        netAmount.abs() < 0.01
+                                            ? 'Settlement Status'
+                                            : 'Settlement Balance',
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          netAmount.abs() < 0.01
+                                              ? '✓ Settled'
+                                              : (netAmount > 0
+                                                    ? 'Receive'
+                                                    : 'Pay'),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    '₱${netAmount.abs().toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Two-column breakdown
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Remaining to Receive',
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '₱${(owesMe - paidToMe).toStringAsFixed(2)}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 1,
+                                        height: 40,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              'Remaining to Pay',
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '₱${(iOwe - iPaid).toStringAsFixed(2)}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Tabs for Payment History and Pending Approvals
+                    Material(
+                      color: Colors.white,
+                      child: TabBar(
+                        controller: _tabController,
+                        labelColor: const Color(0xFF1976D2),
+                        unselectedLabelColor: Colors.grey,
+                        indicatorColor: const Color(0xFF1976D2),
+                        indicatorWeight: 3,
+                        tabs: const [
+                          Tab(text: 'Pending Approvals'),
+                          Tab(text: 'Payment History'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 280,
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          // Pending Approvals Tab
+                          _buildPendingApprovalsTab(),
+                          // Payment History Tab
+                          _buildPaymentHistoryTab(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
+      ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 16.0),
         child: Container(
@@ -738,7 +801,11 @@ class _DashboardPageState extends State<DashboardPage>
           ),
           child: FloatingActionButton.extended(
             onPressed: () {
-              Navigator.pushNamed(context, '/create-expense', arguments: widget.user);
+              Navigator.pushNamed(
+                context,
+                '/create-expense',
+                arguments: widget.user,
+              );
             },
             backgroundColor: const Color(0xFF1976D2),
             elevation: 0,
@@ -779,7 +846,10 @@ class _DashboardPageState extends State<DashboardPage>
                 children: [
                   Icon(Icons.done_all, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 12),
-                  const Text('No pending approvals', style: TextStyle(color: Colors.grey)),
+                  const Text(
+                    'No pending approvals',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ],
               ),
             );
@@ -827,54 +897,67 @@ class _DashboardPageState extends State<DashboardPage>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle_outline, size: 64, color: Colors.grey.shade300),
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 64,
+                    color: Colors.grey.shade300,
+                  ),
                   const SizedBox(height: 12),
-                  const Text('No payment history yet', style: TextStyle(color: Colors.grey)),
+                  const Text(
+                    'No payment history yet',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ],
               ),
             );
           }
 
           final allTransactions = snapshot.data!;
-          final displayedTransactions = allTransactions.take(_displayedPaymentHistoryCount).toList();
-          final hasMoreItems = allTransactions.length > _displayedPaymentHistoryCount;
+          final displayedTransactions = allTransactions
+              .take(_displayedPaymentHistoryCount)
+              .toList();
+          final hasMoreItems =
+              allTransactions.length > _displayedPaymentHistoryCount;
 
           return SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Padding(
               padding: const EdgeInsets.only(bottom: 20.0),
               child: Column(
-              children: [
-                ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: displayedTransactions.length,
-                  itemBuilder: (context, index) {
-                    final transaction = displayedTransactions[index];
-                    return _buildTransactionCard(transaction);
-                  },
-                ),
-                if (hasMoreItems)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    child: ElevatedButton(
-                      onPressed: _loadMorePaymentHistory,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        side: const BorderSide(color: Color(0xFF1976D2)),
-                      ),
-                      child: const Text(
-                        'Load More',
-                        style: TextStyle(color: Color(0xFF1976D2), fontWeight: FontWeight.bold),
+                children: [
+                  ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: displayedTransactions.length,
+                    itemBuilder: (context, index) {
+                      final transaction = displayedTransactions[index];
+                      return _buildTransactionCard(transaction);
+                    },
+                  ),
+                  if (hasMoreItems)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: ElevatedButton(
+                        onPressed: _loadMorePaymentHistory,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          side: const BorderSide(color: Color(0xFF1976D2)),
+                        ),
+                        child: const Text(
+                          'Load More',
+                          style: TextStyle(
+                            color: Color(0xFF1976D2),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
+          );
         },
       ),
     );
@@ -901,20 +984,43 @@ class _DashboardPageState extends State<DashboardPage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(expenseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      Text('From: $payerName', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        expenseName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        'From: $payerName',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                Text('₱${amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
+                Text(
+                  '₱${amount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.orange,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
-              onPressed: () => _showProofDetails(proofId, payerName, amount, imagePath),
+              onPressed: () =>
+                  _showProofDetails(proofId, payerName, amount, imagePath),
               icon: const Icon(Icons.image, size: 18),
               label: const Text('View & Approve'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
@@ -937,7 +1043,9 @@ class _DashboardPageState extends State<DashboardPage>
     final isSent = payerId == currentUserId;
     final personName = isSent ? payeeName : payerName;
     final actionText = isSent ? 'To' : 'From';
-    final iconColor = isPaid || isProofApproved == 1 ? Colors.green : Colors.orange;
+    final iconColor = isPaid || isProofApproved == 1
+        ? Colors.green
+        : Colors.orange;
     final statusText = isPaid || isProofApproved == 1 ? 'Paid' : 'Pending';
 
     return Card(
@@ -950,9 +1058,16 @@ class _DashboardPageState extends State<DashboardPage>
             Container(
               width: 45,
               height: 45,
-              decoration: BoxDecoration(color: iconColor, shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: iconColor,
+                shape: BoxShape.circle,
+              ),
               child: Center(
-                child: Icon(isSent ? Icons.arrow_upward : Icons.arrow_downward, color: Colors.white, size: 20),
+                child: Icon(
+                  isSent ? Icons.arrow_upward : Icons.arrow_downward,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -960,10 +1075,24 @@ class _DashboardPageState extends State<DashboardPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(expenseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  Text('$actionText: $personName', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text(isSent ? 'Payment Sent' : 'Payment Received',
-                    style: TextStyle(fontSize: 10, color: isSent ? Colors.red : Colors.green, fontWeight: FontWeight.bold),
+                  Text(
+                    expenseName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  Text(
+                    '$actionText: $personName',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  Text(
+                    isSent ? 'Payment Sent' : 'Payment Received',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isSent ? Colors.red : Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -971,8 +1100,22 @@ class _DashboardPageState extends State<DashboardPage>
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('₱${amount.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: iconColor)),
-                Text(statusText, style: TextStyle(fontSize: 11, color: iconColor, fontWeight: FontWeight.bold)),
+                Text(
+                  '₱${amount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: iconColor,
+                  ),
+                ),
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: iconColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
           ],
@@ -982,16 +1125,19 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   void _showDebtSummary(int userId) async {
-    Navigator.pushNamed(
-      context,
-      '/expenses',
-      arguments: widget.user,
-    );
+    Navigator.pushNamed(context, '/expenses', arguments: widget.user);
   }
 
-  void _showProofDetails(int proofId, String payerName, double amount, String imagePath) {
+  void _showProofDetails(
+    int proofId,
+    String payerName,
+    double amount,
+    String imagePath,
+  ) {
     final isServerPath = imagePath.startsWith('/uploads/');
-    final imageUrl = isServerPath ? ImageStorageService.getImageUrl(imagePath) : null;
+    final imageUrl = isServerPath
+        ? ImageStorageService.getImageUrl(imagePath)
+        : null;
     final imageFile = isServerPath ? null : File(imagePath);
 
     showDialog(
@@ -1012,9 +1158,23 @@ class _DashboardPageState extends State<DashboardPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Amount', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)),
+                    const Text(
+                      'Amount',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('₱${amount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange)),
+                    Text(
+                      '₱${amount.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1022,14 +1182,27 @@ class _DashboardPageState extends State<DashboardPage>
               const Text('Proof of Payment:'),
               const SizedBox(height: 8),
               if (isServerPath && imageUrl != null)
-                Image.network(imageUrl, width: 300, height: 300, fit: BoxFit.cover)
+                Image.network(
+                  imageUrl,
+                  width: 300,
+                  height: 300,
+                  fit: BoxFit.cover,
+                )
               else if (!isServerPath && imageFile != null)
-                Image.file(imageFile, width: 300, height: 300, fit: BoxFit.cover),
+                Image.file(
+                  imageFile,
+                  width: 300,
+                  height: 300,
+                  fit: BoxFit.cover,
+                ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton.icon(
             onPressed: () async {
               Navigator.pop(context);
@@ -1037,7 +1210,10 @@ class _DashboardPageState extends State<DashboardPage>
             },
             icon: const Icon(Icons.done),
             label: const Text('Approve'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -1105,9 +1281,7 @@ class _DashboardPageState extends State<DashboardPage>
                     if (loadingProgress == null) return child;
                     return Container(
                       color: Colors.grey[100],
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: const Center(child: CircularProgressIndicator()),
                     );
                   },
                   errorBuilder: (context, error, stackTrace) {
@@ -1115,7 +1289,11 @@ class _DashboardPageState extends State<DashboardPage>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+                          const Icon(
+                            Icons.image_not_supported,
+                            size: 50,
+                            color: Colors.grey,
+                          ),
                           const SizedBox(height: 8),
                           Text('Failed to load\n$imageUrl'),
                         ],
@@ -1174,9 +1352,9 @@ class _DashboardPageState extends State<DashboardPage>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -1216,7 +1394,9 @@ class _DashboardPageState extends State<DashboardPage>
                   final imagePath = qrCode['image_path'] as String;
                   final label = qrCode['label'] as String;
                   final isServerPath = imagePath.startsWith('/uploads/');
-                  final imageUrl = isServerPath ? ImageStorageService.getImageUrl(imagePath) : null;
+                  final imageUrl = isServerPath
+                      ? ImageStorageService.getImageUrl(imagePath)
+                      : null;
                   final imageFile = isServerPath ? null : File(imagePath);
 
                   return Padding(
@@ -1255,8 +1435,14 @@ class _DashboardPageState extends State<DashboardPage>
                                         height: 200,
                                         child: Center(
                                           child: CircularProgressIndicator(
-                                            value: loadingProgress.expectedTotalBytes != null
-                                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                            value:
+                                                loadingProgress
+                                                        .expectedTotalBytes !=
+                                                    null
+                                                ? loadingProgress
+                                                          .cumulativeBytesLoaded /
+                                                      loadingProgress
+                                                          .expectedTotalBytes!
                                                 : null,
                                           ),
                                         ),
@@ -1270,15 +1456,24 @@ class _DashboardPageState extends State<DashboardPage>
                                         height: 200,
                                         decoration: BoxDecoration(
                                           color: Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         child: Center(
                                           child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
                                             children: [
-                                              const Icon(Icons.error, color: Colors.red),
+                                              const Icon(
+                                                Icons.error,
+                                                color: Colors.red,
+                                              ),
                                               const SizedBox(height: 4),
-                                              const Text('QR Code failed to load', style: TextStyle(fontSize: 10)),
+                                              const Text(
+                                                'QR Code failed to load',
+                                                style: TextStyle(fontSize: 10),
+                                              ),
                                             ],
                                           ),
                                         ),
@@ -1289,7 +1484,8 @@ class _DashboardPageState extends State<DashboardPage>
                               : FutureBuilder<bool>(
                                   future: imageFile!.exists(),
                                   builder: (context, snapshot) {
-                                    if (snapshot.connectionState == ConnectionState.waiting) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
                                       return const SizedBox(
                                         width: 200,
                                         height: 200,
@@ -1299,14 +1495,17 @@ class _DashboardPageState extends State<DashboardPage>
                                       );
                                     }
 
-                                    if (snapshot.hasData && snapshot.data == true) {
+                                    if (snapshot.hasData &&
+                                        snapshot.data == true) {
                                       return Container(
                                         decoration: BoxDecoration(
                                           border: Border.all(
                                             color: Colors.grey.shade300,
                                             width: 2,
                                           ),
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                         child: Image.file(
                                           imageFile,
@@ -1350,8 +1549,42 @@ class _DashboardPageState extends State<DashboardPage>
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading QR codes: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading QR codes: $e')));
     }
-  }}
+  }
+
+  Widget _buildNotificationBadge(Widget child, int count) {
+    if (count == 0) return child;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          right: -8,
+          top: -8,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+            child: Text(
+              count > 99 ? '99+' : count.toString(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

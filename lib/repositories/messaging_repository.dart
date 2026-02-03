@@ -6,7 +6,9 @@ class MessagingRepository {
 
   /// Get or create a conversation between two users
   Future<Map<String, dynamic>?> getOrCreateConversation(
-      int userId1, int userId2) async {
+    int userId1,
+    int userId2,
+  ) async {
     try {
       // Ensure proper ordering: smaller ID first
       final user1 = userId1 < userId2 ? userId1 : userId2;
@@ -40,13 +42,28 @@ class MessagingRepository {
     }
   }
 
-  /// Send a message
+  /// Send a message (text, image, or video)
   Future<bool> sendMessage(
-      int conversationId, int senderId, int receiverId, String content) async {
+    int conversationId,
+    int senderId,
+    int receiverId,
+    String content, {
+    String? mediaType,
+    String? mediaUrl,
+  }) async {
     try {
+      // Escape content to prevent SQL injection
+      final escapedContent = content.replaceAll("'", "''");
+      final escapedMediaUrl = mediaUrl?.replaceAll("'", "''");
+      final mediaTypeValue = mediaType ?? 'text';
+
+      // Use raw SQL for ENUM column compatibility
+      final mediaUrlPart = escapedMediaUrl != null
+          ? "'$escapedMediaUrl'"
+          : 'NULL';
+
       await _db.execute(
-        'INSERT INTO equisplit.messages (conversation_id, sender_id, receiver_id, content) VALUES (?, ?, ?, ?)',
-        [conversationId, senderId, receiverId, content],
+        "INSERT INTO equisplit.messages (conversation_id, sender_id, receiver_id, content, media_type, media_url) VALUES ($conversationId, $senderId, $receiverId, '$escapedContent', '$mediaTypeValue', $mediaUrlPart)",
       );
 
       // Update conversation's updated_at timestamp
@@ -67,7 +84,7 @@ class MessagingRepository {
   Future<List<Map<String, dynamic>>> getMessages(int conversationId) async {
     try {
       final messages = await _db.query(
-        'SELECT * FROM equisplit.messages WHERE conversation_id = ? AND is_deleted = 0 ORDER BY created_at ASC',
+        'SELECT id, conversation_id, sender_id, receiver_id, content, media_type, media_url, is_read, is_deleted, created_at FROM equisplit.messages WHERE conversation_id = ? AND is_deleted = 0 ORDER BY created_at ASC',
         [conversationId],
       );
       return messages;
@@ -92,8 +109,7 @@ class MessagingRepository {
   }
 
   /// Mark messages as read
-  Future<bool> markMessagesAsRead(
-      int conversationId, int receiverId) async {
+  Future<bool> markMessagesAsRead(int conversationId, int receiverId) async {
     try {
       await _db.execute(
         'UPDATE equisplit.messages SET is_read = TRUE WHERE conversation_id = ? AND receiver_id = ? AND is_read = FALSE',
@@ -109,7 +125,8 @@ class MessagingRepository {
   /// Get conversations list for a user (excluding deleted messages and own messages from preview)
   Future<List<Map<String, dynamic>>> getConversations(int userId) async {
     try {
-      final results = await _db.query('''
+      final results = await _db.query(
+        '''
         SELECT 
           c.id,
           c.user_id_1,
@@ -119,6 +136,7 @@ class MessagingRepository {
           CASE WHEN c.user_id_1 = ? THEN u2.username ELSE u1.username END as other_user_username,
           CASE WHEN c.user_id_1 = ? THEN ua2.image_path ELSE ua1.image_path END as other_user_avatar,
           m.content as last_message,
+          m.media_type as last_message_media_type,
           m.sender_id as last_message_sender_id,
           m.is_read as last_message_is_read,
           m.created_at,
@@ -134,16 +152,10 @@ class MessagingRepository {
         WHERE (c.user_id_1 = ? OR c.user_id_2 = ?)
         GROUP BY c.id
         ORDER BY c.updated_at DESC
-      ''', [
-        userId,
-        userId,
-        userId,
-        userId,
-        userId,
-        userId,
-        userId,
-      ]);
-      
+      ''',
+        [userId, userId, userId, userId, userId, userId, userId],
+      );
+
       // Convert Blob types to String for last_message
       for (var conversation in results) {
         final lastMessageRaw = conversation['last_message'];
@@ -154,11 +166,29 @@ class MessagingRepository {
           conversation['last_message'] = lastMessageRaw.toString();
         }
       }
-      
+
       return results;
     } catch (e) {
       print('Error getting conversations: $e');
       return [];
+    }
+  }
+
+  /// Get total unread message count for a user
+  Future<int> getUnreadMessageCount(int userId) async {
+    try {
+      final result = await _db.queryOne(
+        '''
+        SELECT COUNT(*) as count
+        FROM equisplit.messages
+        WHERE receiver_id = ? AND is_read = FALSE AND is_deleted = 0
+      ''',
+        [userId],
+      );
+      return result?['count'] as int? ?? 0;
+    } catch (e) {
+      print('Error getting unread message count: $e');
+      return 0;
     }
   }
 }

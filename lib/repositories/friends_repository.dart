@@ -5,9 +5,13 @@ class FriendsRepository {
   final _db = DatabaseService();
 
   /// Search for users by name or username, excluding current user and existing friends
-  Future<List<Map<String, dynamic>>> searchUsers(String query, int currentUserId) async {
+  Future<List<Map<String, dynamic>>> searchUsers(
+    String query,
+    int currentUserId,
+  ) async {
     try {
-      final results = await _db.query('''
+      final results = await _db.query(
+        '''
         SELECT 
           u.user_id, 
           u.name, 
@@ -34,13 +38,19 @@ class FriendsRepository {
           u.name LIKE ? OR u.username LIKE ?
         )
         ORDER BY u.name ASC
-      ''', [
-        currentUserId, currentUserId,
-        currentUserId, currentUserId,
-        currentUserId, currentUserId,
-        currentUserId,
-        '%$query%', '%$query%'
-      ]);
+      ''',
+        [
+          currentUserId,
+          currentUserId,
+          currentUserId,
+          currentUserId,
+          currentUserId,
+          currentUserId,
+          currentUserId,
+          '%$query%',
+          '%$query%',
+        ],
+      );
       return results;
     } catch (e) {
       print('Error searching users: $e');
@@ -51,7 +61,8 @@ class FriendsRepository {
   /// Get suggested friends based on mutual connections
   Future<List<Map<String, dynamic>>> getSuggestedFriends(int userId) async {
     try {
-      final results = await _db.query('''
+      final results = await _db.query(
+        '''
         SELECT DISTINCT
           u.user_id, 
           u.name, 
@@ -84,13 +95,19 @@ class FriendsRepository {
         GROUP BY u.user_id, u.name, u.username, ua.image_path
         ORDER BY mutual_count DESC, RAND()
         LIMIT 10
-      ''', [
-        userId, userId,
-        userId, userId,
-        userId,
-        userId, userId,
-        userId, userId
-      ]);
+      ''',
+        [
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+          userId,
+        ],
+      );
       return results;
     } catch (e) {
       print('Error getting suggested friends: $e');
@@ -104,9 +121,9 @@ class FriendsRepository {
       // Check if request already exists
       final existing = await _db.queryOne(
         'SELECT id FROM equisplit.friend_requests WHERE sender_id = ? AND receiver_id = ?',
-        [senderId, receiverId]
+        [senderId, receiverId],
       );
-      
+
       if (existing != null) {
         print('Friend request already exists');
         return false;
@@ -114,7 +131,7 @@ class FriendsRepository {
 
       await _db.execute(
         'INSERT INTO equisplit.friend_requests (sender_id, receiver_id, status) VALUES (?, ?, ?)',
-        [senderId, receiverId, 'pending']
+        [senderId, receiverId, 'pending'],
       );
       print('✅ Friend request sent from $senderId to $receiverId');
       return true;
@@ -130,7 +147,7 @@ class FriendsRepository {
       // Get the request details
       final request = await _db.queryOne(
         'SELECT sender_id, receiver_id FROM equisplit.friend_requests WHERE id = ?',
-        [requestId]
+        [requestId],
       );
 
       if (request == null) {
@@ -144,24 +161,24 @@ class FriendsRepository {
       // Update original request to accepted
       await _db.execute(
         'UPDATE equisplit.friend_requests SET status = ? WHERE id = ?',
-        ['accepted', requestId]
+        ['accepted', requestId],
       );
 
       // Create reverse request from receiver to sender (so both have accepted status)
       final reverseExists = await _db.queryOne(
         'SELECT id FROM equisplit.friend_requests WHERE sender_id = ? AND receiver_id = ?',
-        [receiverId, senderId]
+        [receiverId, senderId],
       );
 
       if (reverseExists == null) {
         await _db.execute(
           'INSERT INTO equisplit.friend_requests (sender_id, receiver_id, status) VALUES (?, ?, ?)',
-          [receiverId, senderId, 'accepted']
+          [receiverId, senderId, 'accepted'],
         );
       } else {
         await _db.execute(
           'UPDATE equisplit.friend_requests SET status = ? WHERE id = ?',
-          ['accepted', reverseExists['id']]
+          ['accepted', reverseExists['id']],
         );
       }
 
@@ -171,10 +188,12 @@ class FriendsRepository {
 
       await _db.execute(
         'INSERT INTO equisplit.friends (user_id_1, user_id_2) VALUES (?, ?) ON DUPLICATE KEY UPDATE id=id',
-        [user1, user2]
+        [user1, user2],
       );
 
-      print('✅ Friend request accepted: $senderId and $receiverId are now friends');
+      print(
+        '✅ Friend request accepted: $senderId and $receiverId are now friends',
+      );
       return true;
     } catch (e) {
       print('Error accepting friend request: $e');
@@ -187,7 +206,7 @@ class FriendsRepository {
     try {
       await _db.execute(
         'DELETE FROM equisplit.friend_requests WHERE sender_id = ? AND receiver_id = ? AND status = ?',
-        [senderId, receiverId, 'pending']
+        [senderId, receiverId, 'pending'],
       );
       print('✅ Friend request cancelled');
       return true;
@@ -202,7 +221,7 @@ class FriendsRepository {
     try {
       await _db.execute(
         'UPDATE equisplit.friend_requests SET status = ? WHERE id = ?',
-        ['rejected', requestId]
+        ['rejected', requestId],
       );
       print('✅ Friend request rejected');
       return true;
@@ -215,7 +234,8 @@ class FriendsRepository {
   /// Get pending friend requests for a user (as receiver)
   Future<List<Map<String, dynamic>>> getPendingRequests(int userId) async {
     try {
-      final results = await _db.query('''
+      final results = await _db.query(
+        '''
         SELECT 
           fr.id,
           u.user_id,
@@ -228,7 +248,9 @@ class FriendsRepository {
         LEFT JOIN equisplit.user_avatars ua ON u.user_id = ua.user_id
         WHERE fr.receiver_id = ? AND fr.status = 'pending'
         ORDER BY fr.created_at DESC
-      ''', [userId]);
+      ''',
+        [userId],
+      );
       return results;
     } catch (e) {
       print('Error getting pending requests: $e');
@@ -236,10 +258,29 @@ class FriendsRepository {
     }
   }
 
+  /// Get count of pending friend requests for a user
+  Future<int> getPendingRequestCount(int userId) async {
+    try {
+      final result = await _db.queryOne(
+        '''
+        SELECT COUNT(*) as count
+        FROM equisplit.friend_requests
+        WHERE receiver_id = ? AND status = 'pending'
+      ''',
+        [userId],
+      );
+      return result?['count'] as int? ?? 0;
+    } catch (e) {
+      print('Error getting pending request count: $e');
+      return 0;
+    }
+  }
+
   /// Get confirmed mutual friends
   Future<List<Map<String, dynamic>>> getMutualFriends(int userId) async {
     try {
-      final results = await _db.query('''
+      final results = await _db.query(
+        '''
         SELECT 
           u.user_id,
           u.name,
@@ -253,7 +294,9 @@ class FriendsRepository {
         )
         LEFT JOIN equisplit.user_avatars ua ON u.user_id = ua.user_id
         ORDER BY u.name ASC
-      ''', [userId, userId]);
+      ''',
+        [userId, userId],
+      );
       return results;
     } catch (e) {
       print('Error getting mutual friends: $e');
@@ -267,16 +310,16 @@ class FriendsRepository {
       // Delete friendship record
       final user1 = userId < friendId ? userId : friendId;
       final user2 = userId < friendId ? friendId : userId;
-      
+
       await _db.execute(
         'DELETE FROM equisplit.friends WHERE user_id_1 = ? AND user_id_2 = ?',
-        [user1, user2]
+        [user1, user2],
       );
 
       // Delete friend request records
       await _db.execute(
         'DELETE FROM equisplit.friend_requests WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)',
-        [userId, friendId, friendId, userId]
+        [userId, friendId, friendId, userId],
       );
 
       print('✅ Friend removed');
@@ -292,10 +335,10 @@ class FriendsRepository {
     try {
       final user1 = userId1 < userId2 ? userId1 : userId2;
       final user2 = userId1 < userId2 ? userId2 : userId1;
-      
+
       final result = await _db.queryOne(
         'SELECT id FROM equisplit.friends WHERE user_id_1 = ? AND user_id_2 = ?',
-        [user1, user2]
+        [user1, user2],
       );
       return result != null;
     } catch (e) {

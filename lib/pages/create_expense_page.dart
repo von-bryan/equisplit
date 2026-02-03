@@ -18,11 +18,11 @@ class CreateExpensePage extends StatefulWidget {
 class _CreateExpensePageState extends State<CreateExpensePage> {
   final _expenseNameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   final _expenseRepo = ExpenseRepository();
   final _userRepo = UserRepository();
   final _friendsRepo = FriendsRepository();
-  
+
   bool _isLoading = false;
   List<Map<String, dynamic>> _allUsers = [];
   List<Map<String, dynamic>> _mutualFriends = [];
@@ -32,7 +32,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   bool _showTransactions = false;
   int? _focusedParticipantId;
   String _expenseType = 'evenly'; // evenly, borrowed, partial
-  
+
   final FocusNode _contributionFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
@@ -63,7 +63,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
 
   Future<void> _loadUsers() async {
     final currentUserId = widget.currentUser?['user_id'] as int?;
-    
+
     // Load all users for backwards compatibility
     final users = await _userRepo.getAllUsers();
     setState(() {
@@ -84,7 +84,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
     String searchQuery = '';
     final currentUserId = widget.currentUser?['user_id'] as int?;
     final isBorrowedType = _expenseType == 'borrowed';
-    final maxParticipantsForBorrowed = 1; // Only 1 additional participant + current user
+    final maxParticipantsForBorrowed =
+        1; // Only 1 additional participant + current user
 
     showDialog(
       context: context,
@@ -99,6 +100,15 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Select from your friends',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.normal,
                 ),
               ),
               if (isBorrowedType)
@@ -136,7 +146,10 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                   },
                   decoration: InputDecoration(
                     hintText: 'Search participants...',
-                    prefixIcon: const Icon(Icons.search, color: Color(0xFF1976D2)),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: Color(0xFF1976D2),
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(color: Colors.grey),
@@ -161,34 +174,40 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                         setDialogState(() {
                           // Use only mutual friends
                           final userList = _mutualFriends;
-                          
+
                           // Get filtered users based on search
                           final filteredUsers = userList
-                              .where((user) =>
-                                  (searchQuery.isEmpty ||
-                                      user['name']
-                                          .toString()
-                                          .toLowerCase()
-                                          .contains(searchQuery) ||
-                                      user['username']
-                                          .toString()
-                                          .toLowerCase()
-                                          .contains(searchQuery)) &&
-                                  !_selectedParticipants
-                                      .containsKey(user['user_id']))
+                              .where(
+                                (user) =>
+                                    (searchQuery.isEmpty ||
+                                        user['name']
+                                            .toString()
+                                            .toLowerCase()
+                                            .contains(searchQuery) ||
+                                        user['username']
+                                            .toString()
+                                            .toLowerCase()
+                                            .contains(searchQuery)) &&
+                                    !_selectedParticipants.containsKey(
+                                      user['user_id'],
+                                    ),
+                              )
                               .toList();
 
                           // Check if all filtered are selected
                           final allFiltered = filteredUsers
                               .map((u) => u['user_id'] as int)
                               .toList();
-                          final allSelectedInFiltered = allFiltered
-                              .every((id) => tempSelectedUsers.contains(id));
+                          final allSelectedInFiltered = allFiltered.every(
+                            (id) => tempSelectedUsers.contains(id),
+                          );
 
-                          if (allSelectedInFiltered && tempSelectedUsers.isNotEmpty) {
+                          if (allSelectedInFiltered &&
+                              tempSelectedUsers.isNotEmpty) {
                             // Deselect all filtered
                             tempSelectedUsers.removeWhere(
-                                (id) => allFiltered.contains(id));
+                              (id) => allFiltered.contains(id),
+                            );
                           } else {
                             // Select all filtered
                             for (var user in filteredUsers) {
@@ -210,113 +229,163 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                       ),
                     ),
                   ),
-                if (!isBorrowedType)
-                  const SizedBox(height: 12),
+                if (!isBorrowedType) const SizedBox(height: 12),
 
                 // User List
                 Expanded(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _mutualFriends.length,
-                    itemBuilder: (context, index) {
-                      final userList = _mutualFriends;
-                      final user = userList[index];
-                      final userId = user['user_id'] as int;
-                      
-                      // Skip current user from modal
-                      if (userId == currentUserId) {
-                        return const SizedBox.shrink();
-                      }
-                      
-                      final isAlreadyAdded =
-                          _selectedParticipants.containsKey(userId);
-                      final isSelected = tempSelectedUsers.contains(userId);
-                      
-                      // For borrowed type, disable if already 1 selected and not current
-                      final isBorrowedMaxReached = isBorrowedType && 
-                          tempSelectedUsers.length >= maxParticipantsForBorrowed && 
-                          !isSelected;
-
-                      // Filter by search
-                      if (searchQuery.isNotEmpty &&
-                          !user['name']
-                              .toString()
-                              .toLowerCase()
-                              .contains(searchQuery) &&
-                          !user['username']
-                              .toString()
-                              .toLowerCase()
-                              .contains(searchQuery)) {
-                        return const SizedBox.shrink();
-                      }
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        elevation: isSelected ? 2 : 0,
-                        color: isSelected ? const Color(0xFFF0F7FF) : Colors.white,
-                        child: ListTile(
-                          leading: _buildAvatarImage(user, size: 40),
-                          title: Text(
-                            user['name'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                  child: _mutualFriends.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.people_outline,
+                                  size: 64,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No Friends Yet',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Add friends first to create expenses with them',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          trailing: isAlreadyAdded
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    borderRadius: BorderRadius.circular(4),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _mutualFriends.length,
+                          itemBuilder: (context, index) {
+                            final userList = _mutualFriends;
+                            final user = userList[index];
+                            final userId = user['user_id'] as int;
+
+                            // Skip current user from modal
+                            if (userId == currentUserId) {
+                              return const SizedBox.shrink();
+                            }
+
+                            final isAlreadyAdded = _selectedParticipants
+                                .containsKey(userId);
+                            final isSelected = tempSelectedUsers.contains(
+                              userId,
+                            );
+
+                            // For borrowed type, disable if already 1 selected and not current
+                            final isBorrowedMaxReached =
+                                isBorrowedType &&
+                                tempSelectedUsers.length >=
+                                    maxParticipantsForBorrowed &&
+                                !isSelected;
+
+                            // Filter by search
+                            if (searchQuery.isNotEmpty &&
+                                !user['name'].toString().toLowerCase().contains(
+                                  searchQuery,
+                                ) &&
+                                !user['username']
+                                    .toString()
+                                    .toLowerCase()
+                                    .contains(searchQuery)) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              elevation: isSelected ? 2 : 0,
+                              color: isSelected
+                                  ? const Color(0xFFF0F7FF)
+                                  : Colors.white,
+                              child: ListTile(
+                                leading: _buildAvatarImage(user, size: 40),
+                                title: Text(
+                                  user['name'],
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
                                   ),
-                                  child: const Text(
-                                    'Added',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                )
-                              : isBorrowedMaxReached
-                                  ? Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Text(
-                                        'Max',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
+                                ),
+                                trailing: isAlreadyAdded
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
                                         ),
-                                      ),
-                                    )
-                              : isSelected
-                                  ? const Icon(
-                                      Icons.check_circle,
-                                      color: Color(0xFF1976D2),
-                                    )
-                                  : const Icon(Icons.circle_outlined),
-                          enabled: !isAlreadyAdded && !isBorrowedMaxReached,
-                          onTap: (!isAlreadyAdded && !isBorrowedMaxReached)
-                              ? () {
-                                  setDialogState(() {
-                                    if (isSelected) {
-                                      tempSelectedUsers.remove(userId);
-                                    } else {
-                                      tempSelectedUsers.add(userId);
-                                    }
-                                  });
-                                }
-                              : null,
+                                        decoration: BoxDecoration(
+                                          color: Colors.green,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Added',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      )
+                                    : isBorrowedMaxReached
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Max',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      )
+                                    : isSelected
+                                    ? const Icon(
+                                        Icons.check_circle,
+                                        color: Color(0xFF1976D2),
+                                      )
+                                    : const Icon(Icons.circle_outlined),
+                                enabled:
+                                    !isAlreadyAdded && !isBorrowedMaxReached,
+                                onTap:
+                                    (!isAlreadyAdded && !isBorrowedMaxReached)
+                                    ? () {
+                                        setDialogState(() {
+                                          if (isSelected) {
+                                            tempSelectedUsers.remove(userId);
+                                          } else {
+                                            tempSelectedUsers.add(userId);
+                                          }
+                                        });
+                                      }
+                                    : null,
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),
@@ -324,7 +393,13 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
             ElevatedButton(
               onPressed: tempSelectedUsers.isEmpty
@@ -341,10 +416,10 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                           }
                         });
                       });
-                      
+
                       // Close the dialog using the dialog's context
                       Navigator.pop(dialogContext);
-                      
+
                       Future.delayed(const Duration(milliseconds: 200), () {
                         if (mounted) {
                           // Scroll to show participants section
@@ -386,9 +461,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
 
   Widget _buildAvatarImage(Map<String, dynamic> user, {double size = 40}) {
     final avatarPath = user['avatar_path'] as String?;
-    
+
     print('Avatar Debug - User: ${user['name']}, Avatar Path: $avatarPath');
-    
+
     return Container(
       width: size,
       height: size,
@@ -406,7 +481,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                   if (avatarPath.contains('/')) {
                     filename = avatarPath.split('/').last;
                   }
-                  final url = 'http://10.0.11.103:3000/uploads/avatars/$filename';
+                  final url =
+                      'http://10.0.11.103:3000/uploads/avatars/$filename';
                   print('Loading avatar from URL: $url');
                   return Image.network(
                     url,
@@ -431,7 +507,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                       return Center(
                         child: CircularProgressIndicator(
                           value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
                               : null,
                         ),
                       );
@@ -493,16 +570,15 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: isSelected ? const Color(0xFF1976D2) : Colors.black87,
+                      color: isSelected
+                          ? const Color(0xFF1976D2)
+                          : Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -573,49 +649,50 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
       contributionsStr[entry.key.toString()] = entry.value;
     }
 
-    List<String> userIds =
-        _selectedParticipants.keys.map((id) => id.toString()).toList();
+    List<String> userIds = _selectedParticipants.keys
+        .map((id) => id.toString())
+        .toList();
 
     // Calculate transactions based on expense type
     List<Transaction> transactions =
         SplittingService.calculateTransactionsByType(
-      userIds,
-      contributionsStr,
-      totalAmount,
-      _expenseType,
-    );
+          userIds,
+          contributionsStr,
+          totalAmount,
+          _expenseType,
+        );
 
     setState(() {
-      _calculatedTransactions = transactions
-          .map((t) {
-            String payerName = 'Unknown';
-            String payeeName = 'Unknown';
+      _calculatedTransactions = transactions.map((t) {
+        String payerName = 'Unknown';
+        String payeeName = 'Unknown';
 
-            try {
-              final payerUser =
-                  _allUsers.firstWhere((u) => u['user_id'].toString() == t.from);
-              payerName = payerUser['name'] ?? 'Unknown';
-            } catch (e) {
-              payerName = 'Unknown';
-            }
+        try {
+          final payerUser = _allUsers.firstWhere(
+            (u) => u['user_id'].toString() == t.from,
+          );
+          payerName = payerUser['name'] ?? 'Unknown';
+        } catch (e) {
+          payerName = 'Unknown';
+        }
 
-            try {
-              final payeeUser =
-                  _allUsers.firstWhere((u) => u['user_id'].toString() == t.to);
-              payeeName = payeeUser['name'] ?? 'Unknown';
-            } catch (e) {
-              payeeName = 'Unknown';
-            }
+        try {
+          final payeeUser = _allUsers.firstWhere(
+            (u) => u['user_id'].toString() == t.to,
+          );
+          payeeName = payeeUser['name'] ?? 'Unknown';
+        } catch (e) {
+          payeeName = 'Unknown';
+        }
 
-            return {
-              'from': payerName,
-              'from_id': int.tryParse(t.from) ?? 0,
-              'to': payeeName,
-              'to_id': int.tryParse(t.to) ?? 0,
-              'amount': t.amount,
-            };
-          })
-          .toList();
+        return {
+          'from': payerName,
+          'from_id': int.tryParse(t.from) ?? 0,
+          'to': payeeName,
+          'to_id': int.tryParse(t.to) ?? 0,
+          'amount': t.amount,
+        };
+      }).toList();
       _showTransactions = true;
     });
   }
@@ -668,9 +745,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) {
@@ -704,7 +781,10 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
               decoration: InputDecoration(
                 labelText: 'Expense Name',
                 hintText: 'e.g., Dinner, Shopping',
-                prefixIcon: const Icon(Icons.shopping_cart, color: Color(0xFF1976D2)),
+                prefixIcon: const Icon(
+                  Icons.shopping_cart,
+                  color: Color(0xFF1976D2),
+                ),
                 labelStyle: const TextStyle(color: Color(0xFF1976D2)),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -727,7 +807,10 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
               decoration: InputDecoration(
                 labelText: 'Description (Optional)',
                 hintText: 'Add notes...',
-                prefixIcon: const Icon(Icons.description, color: Color(0xFF1976D2)),
+                prefixIcon: const Icon(
+                  Icons.description,
+                  color: Color(0xFF1976D2),
+                ),
                 labelStyle: const TextStyle(color: Color(0xFF1976D2)),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -836,10 +919,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF1976D2),
-                    width: 1,
-                  ),
+                  border: Border.all(color: const Color(0xFF1976D2), width: 1),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -914,7 +994,8 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               user['name'],
@@ -928,12 +1009,21 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                         ),
                                       ),
                                       // Only show remove button if user is NOT the current user
-                                      if (userId != widget.currentUser?['user_id'])
+                                      if (userId !=
+                                          widget.currentUser?['user_id'])
                                         IconButton(
-                                          icon: const Icon(Icons.close, color: Colors.red, size: 20),
-                                          onPressed: () => _removeParticipant(userId),
+                                          icon: const Icon(
+                                            Icons.close,
+                                            color: Colors.red,
+                                            size: 20,
+                                          ),
+                                          onPressed: () =>
+                                              _removeParticipant(userId),
                                           padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                                          constraints: const BoxConstraints(
+                                            minWidth: 40,
+                                            minHeight: 40,
+                                          ),
                                         ),
                                     ],
                                   ),
@@ -952,21 +1042,27 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                           color: Color(0xFF1976D2),
                                         ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           borderSide: const BorderSide(
                                             color: Color(0xFF1976D2),
                                             width: 2,
                                           ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           borderSide: const BorderSide(
                                             color: Color(0xFF1976D2),
                                             width: 2,
                                           ),
                                         ),
                                       ),
-                                      controller: _getContributionController(userId),
+                                      controller: _getContributionController(
+                                        userId,
+                                      ),
                                     ),
                                   ] else
                                     Padding(
@@ -1026,7 +1122,11 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : _computeExpenses,
-                  icon: const Icon(Icons.calculate, color: Colors.white, size: 28),
+                  icon: const Icon(
+                    Icons.calculate,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                   label: const Text(
                     'Compute Expenses',
                     style: TextStyle(
@@ -1114,10 +1214,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                       children: [
                         const Text(
                           'Total Expense:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                         Text(
                           '₱${totalAmount.toStringAsFixed(2)}',
@@ -1135,10 +1232,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                       children: [
                         const Text(
                           'Participants:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                         Text(
                           _selectedParticipants.length.toString(),
@@ -1233,7 +1327,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                     borderRadius: BorderRadius.circular(8),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF1976D2).withOpacity(0.3),
+                                        color: const Color(
+                                          0xFF1976D2,
+                                        ).withOpacity(0.3),
                                         blurRadius: 4,
                                       ),
                                     ],
@@ -1250,7 +1346,6 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                               ],
                             ),
                           ),
-
                         ],
                       ),
                     ),
@@ -1269,8 +1364,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                         height: 24,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : const Icon(Icons.save, color: Colors.white, size: 28),
@@ -1302,9 +1398,9 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
   void _showPaymentQR(String receiverName, int receiverId) async {
     // Fetch receiver's QR codes
     final receiverQRCodes = await _expenseRepo.getUserQRCodes(receiverId);
-    
+
     if (!mounted) return;
-    
+
     if (receiverQRCodes.isEmpty) {
       showDialog(
         context: context,
@@ -1328,7 +1424,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
     List<Map<String, dynamic>> qrWithImages = [];
     for (var qr in receiverQRCodes) {
       final imagePath = qr['image_path'];
-      
+
       // Check if it's a server path or local file
       if (imagePath.startsWith('/uploads/')) {
         // Server path
@@ -1410,15 +1506,28 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
                                           qrData['imageUrl'],
                                           fit: BoxFit.cover,
                                           errorBuilder: (context, error, stackTrace) {
-                                            print('❌ Create expense QR error: $error');
-                                            print('🔗 URL: ${qrData["imageUrl"]}');
+                                            print(
+                                              '❌ Create expense QR error: $error',
+                                            );
+                                            print(
+                                              '🔗 URL: ${qrData["imageUrl"]}',
+                                            );
                                             return Container(
                                               color: Colors.grey[300],
                                               child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
-                                                  const Icon(Icons.error, color: Colors.red),
-                                                  Text('Error: $error', style: const TextStyle(fontSize: 8)),
+                                                  const Icon(
+                                                    Icons.error,
+                                                    color: Colors.red,
+                                                  ),
+                                                  Text(
+                                                    'Error: $error',
+                                                    style: const TextStyle(
+                                                      fontSize: 8,
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
                                             );
@@ -1510,10 +1619,7 @@ class _CreateExpensePageState extends State<CreateExpensePage> {
             const SizedBox(height: 16),
             Text(
               'Payment Method: ${qrData['label']}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 8),
             const Text(
