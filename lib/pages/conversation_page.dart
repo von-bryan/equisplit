@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:equisplit/repositories/messaging_repository.dart';
 import 'package:equisplit/services/image_storage_service.dart';
+import 'package:equisplit/widgets/video_player_widget.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:convert';
 
@@ -130,23 +132,30 @@ class _ConversationPageState extends State<ConversationPage> {
       final jsonResponse = json.decode(responseBody);
 
       if (jsonResponse['success'] == true) {
-        final filename = jsonResponse['filename'];
+        final filePath = jsonResponse['filePath'];
         final mimeType = jsonResponse['mimeType'] as String?;
 
-        // Determine media type
-        String mediaType = 'image';
+        // Determine media type based on isVideo flag, MIME type, or file extension
+        String mediaType = isVideo ? 'video' : 'image';
         if (mimeType != null && mimeType.startsWith('video/')) {
+          mediaType = 'video';
+        } else if (filePath.toLowerCase().endsWith('.mp4') ||
+            filePath.toLowerCase().endsWith('.mov') ||
+            filePath.toLowerCase().endsWith('.avi') ||
+            filePath.toLowerCase().endsWith('.mkv')) {
           mediaType = 'video';
         }
 
-        // Send message with media (save only filename to DB)
+        print('🎬 Media type determined: $mediaType (isVideo=$isVideo, mimeType=$mimeType, filePath=$filePath)');
+
+        // Send message with media (save full path like avatars)
         final success = await _messagingRepo.sendMessage(
           _conversationId,
           _currentUserId!,
           _otherUserId!,
           isVideo ? '📹 Video' : '📷 Photo',
           mediaType: mediaType,
-          mediaUrl: filename,
+          mediaUrl: filePath,
         );
 
         if (success) {
@@ -421,6 +430,13 @@ class _ConversationPageState extends State<ConversationPage> {
                           mediaType != 'text' &&
                           mediaUrl != null;
 
+                      // Debug logging
+                      if (mediaType != null || mediaUrl != null) {
+                        print(
+                          '📸 Message: mediaType=$mediaType, mediaUrl=$mediaUrl, isMediaMessage=$isMediaMessage',
+                        );
+                      }
+
                       // Handle both DateTime and String types
                       final createdAt = message['created_at'] is DateTime
                           ? message['created_at'] as DateTime
@@ -489,100 +505,102 @@ class _ConversationPageState extends State<ConversationPage> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 if (mediaType == 'image')
-                                                  ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
+                                                  GestureDetector(
+                                                    onTap: () {
+                                                      // Show full-screen image
+                                                      final imageUrl =
+                                                          'http://${ImageStorageService.SERVER_IP}:${ImageStorageService.SERVER_PORT}$mediaUrl';
+                                                      Navigator.push(
+                                                        context,
+                                                        PageRouteBuilder(
+                                                          opaque: false,
+                                                          barrierColor: Colors.black,
+                                                          pageBuilder: (context, _, __) => _FullScreenImageViewer(imageUrl: imageUrl),
+                                                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                                            return FadeTransition(
+                                                              opacity: animation,
+                                                              child: child,
+                                                            );
+                                                          },
                                                         ),
-                                                    child: Image.network(
-                                                      'http://${ImageStorageService.SERVER_IP}:${ImageStorageService.SERVER_PORT}/uploads/chat/$mediaUrl',
-                                                      width: 200,
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder:
-                                                          (
-                                                            context,
-                                                            error,
-                                                            stackTrace,
-                                                          ) {
-                                                            return Container(
-                                                              width: 200,
-                                                              height: 150,
-                                                              color: Colors
-                                                                  .grey[400],
-                                                              child: const Icon(
-                                                                Icons
-                                                                    .broken_image,
-                                                                size: 50,
-                                                              ),
-                                                            );
-                                                          },
-                                                      loadingBuilder:
-                                                          (
-                                                            context,
-                                                            child,
-                                                            loadingProgress,
-                                                          ) {
-                                                            if (loadingProgress ==
-                                                                null)
-                                                              return child;
-                                                            return Container(
-                                                              width: 200,
-                                                              height: 150,
-                                                              alignment:
-                                                                  Alignment
-                                                                      .center,
-                                                              child: CircularProgressIndicator(
-                                                                value:
-                                                                    loadingProgress
-                                                                            .expectedTotalBytes !=
-                                                                        null
-                                                                    ? loadingProgress
-                                                                              .cumulativeBytesLoaded /
-                                                                          loadingProgress
-                                                                              .expectedTotalBytes!
-                                                                    : null,
-                                                              ),
-                                                            );
-                                                          },
+                                                      );
+                                                    },
+                                                    child: ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                      child: Builder(
+                                                        builder: (context) {
+                                                          // Use path from database directly like avatars
+                                                          final imageUrl =
+                                                              'http://${ImageStorageService.SERVER_IP}:${ImageStorageService.SERVER_PORT}$mediaUrl';
+                                                          print(
+                                                            '🖼️ Loading image: $imageUrl',
+                                                          );
+                                                          return Image.network(
+                                                            imageUrl,
+                                                            width: 200,
+                                                            height: 150,
+                                                            fit: BoxFit.cover,
+                                                            errorBuilder:
+                                                                (
+                                                                  context,
+                                                                  error,
+                                                                  stackTrace,
+                                                                ) {
+                                                                  print(
+                                                                    '❌ Image load error: $error',
+                                                                  );
+                                                                  return Container(
+                                                                    width: 200,
+                                                                    height: 150,
+                                                                    color: Colors
+                                                                        .grey[400],
+                                                                    child: const Icon(
+                                                                      Icons
+                                                                          .broken_image,
+                                                                      size: 50,
+                                                                    ),
+                                                                  );
+                                                                },
+                                                            loadingBuilder:
+                                                                (
+                                                                  context,
+                                                                  child,
+                                                                  loadingProgress,
+                                                                ) {
+                                                                  if (loadingProgress ==
+                                                                      null)
+                                                                    return child;
+                                                                  return Container(
+                                                                    width: 200,
+                                                                    height: 150,
+                                                                    alignment:
+                                                                        Alignment
+                                                                            .center,
+                                                                    child: CircularProgressIndicator(
+                                                                      value:
+                                                                          loadingProgress.expectedTotalBytes !=
+                                                                              null
+                                                                          ? loadingProgress.cumulativeBytesLoaded /
+                                                                                loadingProgress.expectedTotalBytes!
+                                                                          : null,
+                                                                    ),
+                                                                  );
+                                                                },
+                                                          );
+                                                        },
+                                                      ),
                                                     ),
                                                   )
                                                 else if (mediaType == 'video')
-                                                  Container(
-                                                    width: 200,
-                                                    padding:
-                                                        const EdgeInsets.all(
-                                                          12,
-                                                        ),
-                                                    child: Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons
-                                                              .play_circle_filled,
-                                                          color: isSent
-                                                              ? Colors.white
-                                                              : Colors.black87,
-                                                          size: 40,
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 12,
-                                                        ),
-                                                        Expanded(
-                                                          child: Text(
-                                                            'Video',
-                                                            style: TextStyle(
-                                                              color: isSent
-                                                                  ? Colors.white
-                                                                  : Colors
-                                                                        .black87,
-                                                              fontSize: 14,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
+                                                  VideoPlayerWidget(
+                                                    videoUrl:
+                                                        'http://${ImageStorageService.SERVER_IP}:${ImageStorageService.SERVER_PORT}$mediaUrl',
                                                   ),
-                                                if (content.isNotEmpty && 
-                                                    content != '📷 Photo' && 
+                                                if (content.isNotEmpty &&
+                                                    content != '📷 Photo' &&
                                                     content != '📹 Video')
                                                   Padding(
                                                     padding:
@@ -718,6 +736,154 @@ class _ConversationPageState extends State<ConversationPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Full-screen image viewer with professional design
+class _FullScreenImageViewer extends StatefulWidget {
+  final String imageUrl;
+
+  const _FullScreenImageViewer({required this.imageUrl});
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  bool _showControls = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: () {
+          setState(() => _showControls = !_showControls);
+        },
+        child: Stack(
+          children: [
+            // Image with pinch-to-zoom
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  widget.imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                        color: const Color(0xFF1976D2),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Center(
+                      child: Icon(
+                        Icons.broken_image,
+                        color: Colors.white54,
+                        size: 80,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            // Top gradient with back button
+            AnimatedOpacity(
+              opacity: _showControls ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.7),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Row(
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        margin: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.download_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          onPressed: () async {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Downloading image...'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            try {
+                              final response = await http.get(Uri.parse(widget.imageUrl));
+                              final directory = await getExternalStorageDirectory();
+                              final fileName = 'equisplit_${DateTime.now().millisecondsSinceEpoch}.jpg';
+                              final filePath = '${directory!.path}/$fileName';
+                              final file = File(filePath);
+                              await file.writeAsBytes(response.bodyBytes);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Saved to $filePath'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Download failed: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

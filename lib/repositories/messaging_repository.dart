@@ -52,6 +52,9 @@ class MessagingRepository {
     String? mediaUrl,
   }) async {
     try {
+      // Debug logging
+      print('💾 Saving message: mediaType=$mediaType, mediaUrl=$mediaUrl');
+
       // Escape content to prevent SQL injection
       final escapedContent = content.replaceAll("'", "''");
       final escapedMediaUrl = mediaUrl?.replaceAll("'", "''");
@@ -62,9 +65,11 @@ class MessagingRepository {
           ? "'$escapedMediaUrl'"
           : 'NULL';
 
-      await _db.execute(
-        "INSERT INTO equisplit.messages (conversation_id, sender_id, receiver_id, content, media_type, media_url) VALUES ($conversationId, $senderId, $receiverId, '$escapedContent', '$mediaTypeValue', $mediaUrlPart)",
-      );
+      final sql =
+          "INSERT INTO equisplit.messages (conversation_id, sender_id, receiver_id, content, media_type, media_url) VALUES ($conversationId, $senderId, $receiverId, '$escapedContent', '$mediaTypeValue', $mediaUrlPart)";
+      print('📝 SQL: $sql');
+
+      await _db.execute(sql);
 
       // Update conversation's updated_at timestamp
       await _db.execute(
@@ -87,6 +92,41 @@ class MessagingRepository {
         'SELECT id, conversation_id, sender_id, receiver_id, content, media_type, media_url, is_read, is_deleted, created_at FROM equisplit.messages WHERE conversation_id = ? AND is_deleted = 0 ORDER BY created_at ASC',
         [conversationId],
       );
+
+      // Convert Blob types to String for content, media_type, and media_url
+      for (var message in messages) {
+        // Debug: show raw data types
+        print(
+          '🔍 Raw message data: id=${message['id']}, media_type type=${message['media_type'].runtimeType}, media_url type=${message['media_url'].runtimeType}, media_url value=${message['media_url']}',
+        );
+
+        // Convert content Blob to String
+        final contentRaw = message['content'];
+        if (contentRaw is List<int>) {
+          message['content'] = String.fromCharCodes(contentRaw);
+        } else if (contentRaw != null && contentRaw is! String) {
+          message['content'] = contentRaw.toString();
+        }
+
+        // Convert media_type Blob to String
+        final mediaTypeRaw = message['media_type'];
+        if (mediaTypeRaw is List<int>) {
+          message['media_type'] = String.fromCharCodes(mediaTypeRaw);
+        } else if (mediaTypeRaw != null && mediaTypeRaw is! String) {
+          message['media_type'] = mediaTypeRaw.toString();
+        }
+
+        // Convert media_url Blob to String
+        final mediaUrlRaw = message['media_url'];
+        if (mediaUrlRaw is List<int>) {
+          message['media_url'] = String.fromCharCodes(mediaUrlRaw);
+        } else if (mediaUrlRaw != null && mediaUrlRaw is! String) {
+          message['media_url'] = mediaUrlRaw.toString();
+        }
+
+        print('✅ After conversion: media_url=${message['media_url']}');
+      }
+
       return messages;
     } catch (e) {
       print('Error getting messages: $e');

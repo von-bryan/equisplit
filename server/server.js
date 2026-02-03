@@ -95,9 +95,11 @@ app.post('/api/upload/chat', uploadChat.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  console.log(`✅ Chat media uploaded: ${req.file.filename}`);
+  const filePath = `/uploads/chat/${req.file.filename}`;
+  console.log(`✅ Chat media uploaded: ${filePath}`);
   res.json({ 
     success: true, 
+    filePath: filePath,
     filename: req.file.filename,
     mimeType: req.file.mimetype
   });
