@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:equisplit/services/image_storage_service.dart';
 import 'package:equisplit/repositories/expense_repository.dart';
 import 'package:equisplit/repositories/user_repository.dart';
+import 'package:equisplit/widgets/custom_loading_indicator.dart';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -79,6 +79,8 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
       print('Loaded transactions: ${transactionsList.length}');
       for (var t in transactionsList) {
         print('Transaction: ${t['payer_name']} -> ${t['payee_name']}');
+        print('  Payer avatar: ${t['payer_avatar']}');
+        print('  Payee avatar: ${t['payee_avatar']}');
       }
 
       if (mounted) {
@@ -288,7 +290,7 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
             // Verify file was created
             final fileExists = await file.exists();
             final fileSize = await file.length();
-            print('✅ File created: $fileExists, Size: ${fileSize} bytes');
+            print('✅ File created: $fileExists, Size: $fileSize bytes');
             print('📍 Full path: $downloadPath');
             
             if (fileExists && fileSize > 0) {
@@ -567,34 +569,12 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
     );
   }
 
-  void _showPaymentQR(String payeeName, double amount, Map<String, dynamic> transaction) {
-    final qrListString = transaction['payee_qr_list'];
+  void _showPaymentQR(String payeeName, double amount, Map<String, dynamic> transaction) async {
+    // Fetch QR codes from database
+    final payeeId = transaction['payee_id'] as int;
+    final qrCodesList = await _expenseRepo.getUserQRCodes(payeeId);
     
-    // Parse QR code list from concatenated string
-    List<Map<String, String>> qrCodes = [];
-    if (qrListString != null && qrListString.toString().isNotEmpty) {
-      final qrItems = qrListString.toString().split(';');
-      for (var item in qrItems) {
-        final parts = item.split(':');
-        if (parts.length >= 4) {
-          qrCodes.add({
-            'id': parts[0],
-            'path': parts[1],
-            'label': parts[2],
-            'isDefault': parts[3],
-          });
-        }
-      }
-    }
-    
-    // Filter to show only default QR code
-    final defaultQR = qrCodes.firstWhere(
-      (qr) => qr['isDefault'] == '1',
-      orElse: () => qrCodes.isNotEmpty ? qrCodes[0] : {'id': '', 'path': '', 'label': 'No QR', 'isDefault': '0'},
-    );
-    
-    // Show QR dialog with only the default QR
-    if (defaultQR['path']!.isEmpty) {
+    if (qrCodesList.isEmpty) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -611,7 +591,20 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
       return;
     }
     
-    _showSingleQR(payeeName, amount, defaultQR, transaction);
+    // Get default QR code or first available
+    final defaultQR = qrCodesList.firstWhere(
+      (qr) => qr['is_default'] == 1,
+      orElse: () => qrCodesList[0],
+    );
+    
+    final qrCodeMap = <String, String>{
+      'id': defaultQR['qr_code_id'].toString(),
+      'path': defaultQR['image_path'].toString(),
+      'label': defaultQR['label'].toString(),
+      'isDefault': defaultQR['is_default'].toString(),
+    };
+    
+    _showSingleQR(payeeName, amount, qrCodeMap, transaction);
   }
 
   void _showSingleQR(String payeeName, double amount, Map<String, String> qrCode, Map<String, dynamic> transaction) {
@@ -642,7 +635,7 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
                           return Container(
                             color: Colors.grey[100],
                             child: const Center(
-                              child: CircularProgressIndicator(),
+                              child: CustomLoadingIndicator(size: 30),
                             ),
                           );
                         },
@@ -731,7 +724,7 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
         ),
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CustomLoadingIndicator())
           : expenseDetails == null
               ? const Center(
                   child: Text('Expense not found'),
@@ -1074,6 +1067,7 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
                 final currentUserOwes = payerId == currentUserId;
                 
                 print('Transaction: $payerName → $payeeName | PayerId: $payerId | CurrentUserId: $currentUserId | Owes: $currentUserOwes');
+                print('💾 Avatar Data - Payer: $payerAvatar | Payee: $payeeAvatar');
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -1143,7 +1137,7 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
                                           ),
                                         ),
                                         const Icon(Icons.arrow_forward,
-                                            size: 16),
+                                            size: 16, color: Colors.grey),
                                         const SizedBox(width: 8),
                                         // Payee Avatar
                                         Container(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:equisplit/repositories/friends_repository.dart';
 import 'package:equisplit/services/image_storage_service.dart';
+import 'package:equisplit/widgets/custom_loading_indicator.dart';
 
 class UsersListPage extends StatefulWidget {
   final Map<String, dynamic>? currentUser;
@@ -481,7 +482,7 @@ class _UsersListPageState extends State<UsersListPage> with SingleTickerProvider
 
           // Tab 2: Friend Requests
           _isLoadingPending
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(child: CustomLoadingIndicator())
               : _pendingRequests.isEmpty
                   ? Center(
                       child: Column(
@@ -517,7 +518,7 @@ class _UsersListPageState extends State<UsersListPage> with SingleTickerProvider
 
           // Tab 3: My Friends
           _isLoadingFriends
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(child: CustomLoadingIndicator())
               : _myFriends.isEmpty
                   ? Center(
                       child: Column(
@@ -569,10 +570,10 @@ class _UsersListPageState extends State<UsersListPage> with SingleTickerProvider
             ),
           ),
           if (_isLoadingSuggestions)
-            const Center(
+            Center(
               child: Padding(
                 padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
+                child: CustomLoadingIndicator(),
               ),
             )
           else if (_suggestedFriends.isEmpty)
@@ -627,7 +628,7 @@ class _UsersListPageState extends State<UsersListPage> with SingleTickerProvider
         .toList();
 
     return _isSearching
-        ? const Center(child: CircularProgressIndicator())
+        ? Center(child: CustomLoadingIndicator())
         : nonFriendResults.isEmpty
             ? Center(
                 child: Padding(

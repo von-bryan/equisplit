@@ -190,23 +190,29 @@ class ExpenseRepository {
     int expenseId,
   ) async {
     try {
-      return await _db.query(
-        '''SELECT t.*, 
+      final results = await _db.query(
+        '''SELECT t.transaction_id, t.expense_id, t.payer_id, t.payee_id, t.amount, t.description, t.status, t.created_date, t.paid_date,
            u1.name as payer_name, u1.username as payer_username,
            u2.name as payee_name, u2.username as payee_username,
-           (SELECT GROUP_CONCAT(CONCAT(qr_code_id, ':', image_path, ':', label, ':', is_default) SEPARATOR ';') 
-            FROM equisplit.user_qr_codes 
-            WHERE user_id = u2.user_id AND is_active = TRUE) as payee_qr_list,
-           ua1.image_path as payer_avatar, ua2.image_path as payee_avatar
+           ua1.image_path as payer_avatar,
+           ua2.image_path as payee_avatar
            FROM equisplit.transactions t
            JOIN equisplit.user u1 ON t.payer_id = u1.user_id
            JOIN equisplit.user u2 ON t.payee_id = u2.user_id
-           LEFT JOIN equisplit.user_avatars ua1 ON u1.user_id = ua1.user_id
-           LEFT JOIN equisplit.user_avatars ua2 ON u2.user_id = ua2.user_id
-           WHERE t.expense_id = ?
-           GROUP BY t.transaction_id''',
+           LEFT JOIN equisplit.user_avatars ua1 ON t.payer_id = ua1.user_id
+           LEFT JOIN equisplit.user_avatars ua2 ON t.payee_id = ua2.user_id
+           WHERE t.expense_id = ?''',
         [expenseId],
       );
+      
+      // Debug: Check what database actually returns
+      if (results.isNotEmpty) {
+        print('🔍 Database Transaction Result:');
+        print('  Payer Avatar: ${results[0]['payer_avatar']}');
+        print('  Payee Avatar: ${results[0]['payee_avatar']}');
+      }
+      
+      return results;
     } catch (e) {
       print('Error fetching transactions: $e');
       return [];
@@ -356,12 +362,16 @@ class ExpenseRepository {
         '''SELECT t.*, 
            u1.name as payer_name, u1.username as payer_username,
            u2.name as payee_name, u2.username as payee_username,
+           ua1.image_path as payer_avatar,
+           ua2.image_path as payee_avatar,
            e.expense_name,
            (SELECT COUNT(*) FROM equisplit.proof_of_payment WHERE transaction_id = t.transaction_id AND approval_status = 'pending') as pending_proofs,
            (SELECT MAX(approval_status) FROM equisplit.proof_of_payment WHERE transaction_id = t.transaction_id) as latest_approval_status
            FROM equisplit.transactions t
            JOIN equisplit.user u1 ON t.payer_id = u1.user_id
            JOIN equisplit.user u2 ON t.payee_id = u2.user_id
+           LEFT JOIN equisplit.user_avatars ua1 ON u1.user_id = ua1.user_id
+           LEFT JOIN equisplit.user_avatars ua2 ON u2.user_id = ua2.user_id
            JOIN equisplit.expenses e ON t.expense_id = e.expense_id
            WHERE t.payer_id = ? AND t.status = 'pending'
            ORDER BY t.created_date DESC''',
@@ -382,12 +392,16 @@ class ExpenseRepository {
         '''SELECT t.*, 
            u1.name as payer_name, u1.username as payer_username,
            u2.name as payee_name, u2.username as payee_username,
+           ua1.image_path as payer_avatar,
+           ua2.image_path as payee_avatar,
            e.expense_name,
            (SELECT COUNT(*) FROM equisplit.proof_of_payment WHERE transaction_id = t.transaction_id AND approval_status = 'pending') as pending_proofs,
            (SELECT MAX(approval_status) FROM equisplit.proof_of_payment WHERE transaction_id = t.transaction_id) as latest_approval_status
            FROM equisplit.transactions t
            JOIN equisplit.user u1 ON t.payer_id = u1.user_id
            JOIN equisplit.user u2 ON t.payee_id = u2.user_id
+           LEFT JOIN equisplit.user_avatars ua1 ON u1.user_id = ua1.user_id
+           LEFT JOIN equisplit.user_avatars ua2 ON u2.user_id = ua2.user_id
            JOIN equisplit.expenses e ON t.expense_id = e.expense_id
            WHERE t.payee_id = ? AND t.status = 'pending'
            ORDER BY t.created_date DESC''',
@@ -430,7 +444,8 @@ class ExpenseRepository {
     int userId,
   ) async {
     try {
-      return await _db.query(
+      print('🔍 Querying approved transactions for user_id: $userId');
+      final results = await _db.query(
         '''SELECT t.*, 
            u1.name as payer_name, u1.username as payer_username,
            u2.name as payee_name, u2.username as payee_username,
@@ -444,10 +459,20 @@ class ExpenseRepository {
            JOIN equisplit.expenses e ON t.expense_id = e.expense_id
            LEFT JOIN equisplit.proof_of_payment p ON t.transaction_id = p.transaction_id
            WHERE (t.payer_id = ? OR t.payee_id = ?)
-           AND p.approval_status = 'approved'
+           AND (p.approval_status = 'approved' OR t.status = 'paid')
            ORDER BY t.created_date DESC''',
         [userId, userId],
       );
+      print('📊 Payment history count: ${results.length}');
+      if (results.isEmpty) {
+        print('⚠️ No results found. Checking if user has any transactions at all...');
+        final anyTransactions = await _db.query(
+          'SELECT COUNT(*) as count FROM equisplit.transactions WHERE payer_id = ? OR payee_id = ?',
+          [userId, userId],
+        );
+        print('📊 Total transactions for user: ${anyTransactions.first['count']}');
+      }
+      return results;
     } catch (e) {
       print('Error fetching approved user transactions: $e');
       return [];
@@ -535,11 +560,20 @@ class ExpenseRepository {
     bool isActive = true,
   }) async {
     try {
+      // Check if this is the first QR code for the user
+      final existingQRCodes = await _db.query(
+        'SELECT COUNT(*) as count FROM equisplit.user_qr_codes WHERE user_id = ? AND is_active = TRUE',
+        [userId],
+      );
+      
+      final count = existingQRCodes.first['count'] as int? ?? 0;
+      final shouldBeDefault = count == 0; // First QR code should be default
+      
       await _db.execute(
         '''INSERT INTO equisplit.user_qr_codes 
-           (user_id, label, image_path, is_active) 
-           VALUES (?, ?, ?, ?)''',
-        [userId, label, imagePath, isActive ? 1 : 0],
+           (user_id, label, image_path, is_active, is_default) 
+           VALUES (?, ?, ?, ?, ?)''',
+        [userId, label, imagePath, isActive ? 1 : 0, shouldBeDefault ? 1 : 0],
       );
       return true;
     } catch (e) {

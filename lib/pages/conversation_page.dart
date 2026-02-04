@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:equisplit/repositories/messaging_repository.dart';
 import 'package:equisplit/services/image_storage_service.dart';
 import 'package:equisplit/widgets/video_player_widget.dart';
+import 'package:equisplit/widgets/custom_loading_indicator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async';
 
 class ConversationPage extends StatefulWidget {
   final Map<String, dynamic> otherUser;
@@ -35,6 +38,7 @@ class _ConversationPageState extends State<ConversationPage> {
   bool _isLoading = true;
   bool _isSending = false;
   bool _isUploadingMedia = false;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
@@ -55,6 +59,28 @@ class _ConversationPageState extends State<ConversationPage> {
     if (conversation != null) {
       setState(() => _conversationId = conversation['id'] as int);
       await _loadMessages();
+      await _messagingRepo.markMessagesAsRead(_conversationId, _currentUserId!);
+      _startPolling();
+    }
+  }
+
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _checkForNewMessages();
+    });
+  }
+
+  Future<void> _checkForNewMessages() async {
+    final messages = await _messagingRepo.getMessages(_conversationId);
+    if (!mounted) return;
+    
+    if (messages.length > _messages.length) {
+      setState(() => _messages = messages);
+      _scrollToBottom();
       await _messagingRepo.markMessagesAsRead(_conversationId, _currentUserId!);
     }
   }
@@ -116,6 +142,43 @@ class _ConversationPageState extends State<ConversationPage> {
       if (pickedFile == null) {
         setState(() => _isUploadingMedia = false);
         return;
+      }
+
+      // Check video duration if it's a video
+      if (isVideo) {
+        final videoController = VideoPlayerController.file(File(pickedFile.path));
+        try {
+          await videoController.initialize();
+          final duration = videoController.value.duration;
+          
+          if (duration.inSeconds > 30) {
+            setState(() => _isUploadingMedia = false);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Video must be 30 seconds or less'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+            await videoController.dispose();
+            return;
+          }
+          await videoController.dispose();
+        } catch (e) {
+          await videoController.dispose();
+          setState(() => _isUploadingMedia = false);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error checking video duration: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
       }
 
       // Upload to server
@@ -274,7 +337,12 @@ class _ConversationPageState extends State<ConversationPage> {
     final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
 
     if (messageDate == today) {
-      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      // Format as 12-hour with AM/PM
+      int hour = dateTime.hour;
+      String period = hour >= 12 ? 'PM' : 'AM';
+      hour = hour % 12;
+      if (hour == 0) hour = 12;
+      return '$hour:${dateTime.minute.toString().padLeft(2, '0')} $period';
     } else if (messageDate == yesterday) {
       return 'Yesterday';
     } else {
@@ -284,6 +352,7 @@ class _ConversationPageState extends State<ConversationPage> {
 
   @override
   void dispose() {
+    _pollingTimer?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -354,7 +423,7 @@ class _ConversationPageState extends State<ConversationPage> {
         children: [
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CustomLoadingIndicator())
                 : _messages.isEmpty
                 ? Center(
                     child: Column(
@@ -437,10 +506,10 @@ class _ConversationPageState extends State<ConversationPage> {
                         );
                       }
 
-                      // Handle both DateTime and String types
-                      final createdAt = message['created_at'] is DateTime
+                      // Handle both DateTime and String types and add 8 hours for timezone adjustment
+                      final createdAt = (message['created_at'] is DateTime
                           ? message['created_at'] as DateTime
-                          : DateTime.parse(message['created_at'] as String);
+                          : DateTime.parse(message['created_at'] as String)).add(const Duration(hours: 8));
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -571,8 +640,9 @@ class _ConversationPageState extends State<ConversationPage> {
                                                                   loadingProgress,
                                                                 ) {
                                                                   if (loadingProgress ==
-                                                                      null)
+                                                                      null) {
                                                                     return child;
+                                                                  }
                                                                   return Container(
                                                                     width: 200,
                                                                     height: 150,

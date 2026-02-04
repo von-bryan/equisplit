@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ImageStorageService {
-  static const String SERVER_IP = '10.0.11.103';
+  static const String SERVER_IP = '10.0.5.60';
   static const int SERVER_PORT = 3000;
   static const String BASE_URL = 'http://$SERVER_IP:$SERVER_PORT/api';
 

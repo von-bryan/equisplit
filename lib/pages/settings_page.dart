@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:equisplit/repositories/user_repository.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final Map<String, dynamic>? currentUser;
+
+  const SettingsPage({super.key, this.currentUser});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -51,25 +53,63 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
+    final userId = widget.currentUser?['user_id'];
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not found')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Verify current password and update
-      // For now, showing success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password changed successfully'),
-          backgroundColor: const Color(0xFF1976D2),
-        ),
+      final success = await _userRepo.changePassword(
+        userId,
+        _currentPasswordController.text,
+        _newPasswordController.text,
       );
-      
-      _currentPasswordController.clear();
-      _newPasswordController.clear();
-      _confirmPasswordController.clear();
+
+      if (success) {
+        if (mounted) {
+          // Unfocus and close keyboard
+          FocusScope.of(context).unfocus();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Password changed successfully'),
+              backgroundColor: Color(0xFF1976D2),
+            ),
+          );
+          
+          // Clear text fields
+          _currentPasswordController.clear();
+          _newPasswordController.clear();
+          _confirmPasswordController.clear();
+          
+          // Reset obscure password states
+          setState(() {
+            _obscureCurrentPassword = true;
+            _obscureNewPassword = true;
+            _obscureConfirmPassword = true;
+          });
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Current password is incorrect'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -236,7 +276,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.notifications, color: const Color(0xFF1976D2)),
+              leading: const Icon(Icons.notifications, color: Color(0xFF1976D2)),
               title: const Text('Notifications'),
               subtitle: const Text('Manage app notifications'),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -249,7 +289,7 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.language, color: const Color(0xFF1976D2)),
+              leading: const Icon(Icons.language, color: Color(0xFF1976D2)),
               title: const Text('Language'),
               subtitle: const Text('English'),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -262,7 +302,7 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.help_outline, color: const Color(0xFF1976D2)),
+              leading: const Icon(Icons.help_outline, color: Color(0xFF1976D2)),
               title: const Text('Help & Support'),
               subtitle: const Text('Get help or contact us'),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),

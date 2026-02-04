@@ -13,21 +13,57 @@ import 'package:equisplit/pages/debug_page.dart';
 import 'package:equisplit/pages/expenses_list_page.dart';
 import 'package:equisplit/pages/messaging_page.dart';
 import 'package:equisplit/pages/conversation_page.dart';
+import 'package:equisplit/pages/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await DatabaseService().connect();
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isConnecting = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectToDatabase();
+  }
+
+  Future<void> _connectToDatabase() async {
+    try {
+      await DatabaseService().connect();
+      await Future.delayed(const Duration(seconds: 2)); // Show splash for at least 2 seconds
+      if (mounted) {
+        setState(() => _isConnecting = false);
+      }
+    } catch (e) {
+      print('Database connection error: $e');
+      if (mounted) {
+        setState(() => _isConnecting = false);
+      }
+    }
+  }
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    if (_isConnecting) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: SplashScreen(),
+      );
+    }
+
     return MaterialApp(
       title: 'EquiSplit',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1976D2)),
         scaffoldBackgroundColor: const Color(0xFFF8FAFF),
@@ -60,7 +96,10 @@ class MyApp extends StatelessWidget {
             return const ProfilePage();
           }
         },
-        '/settings': (context) => const SettingsPage(),
+        '/settings': (context) {
+          final user = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+          return SettingsPage(currentUser: user);
+        },
         '/create-expense': (context) {
           final user = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
           return CreateExpensePage(currentUser: user);

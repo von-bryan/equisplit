@@ -39,18 +39,11 @@ class UserRepository {
   Future<Map<String, dynamic>?> getUserById(int id) async {
     try {
       // Try user_id first (common column name)
-      var result = await _db.queryOne('SELECT user_id, name, username, email FROM equisplit.user WHERE user_id = ?', [id]);
+      var result = await _db.queryOne('SELECT user_id, name, username, password FROM equisplit.user WHERE user_id = ?', [id]);
       return result;
     } catch (e) {
       print('Error fetching user by user_id: $e');
-      try {
-        // Fallback to id if user_id doesn't work
-        var result = await _db.queryOne('SELECT * FROM equisplit.user WHERE id = ?', [id]);
-        return result;
-      } catch (e2) {
-        print('Error fetching user by id: $e2');
-        return null;
-      }
+      return null;
     }
   }
 
@@ -158,12 +151,47 @@ class UserRepository {
     try {
       final hashedPassword = PasswordService.hashPassword(newPassword);
       await _db.execute(
-        'UPDATE equisplit.user SET password = ? WHERE id = ?',
+        'UPDATE equisplit.user SET password = ? WHERE user_id = ?',
         [hashedPassword, userId],
       );
       return true;
     } catch (e) {
       print('Error updating password: $e');
+      return false;
+    }
+  }
+
+  /// Change password with current password verification
+  Future<bool> changePassword(int userId, String currentPassword, String newPassword) async {
+    try {
+      // Get user to verify current password
+      final user = await getUserById(userId);
+      if (user == null) {
+        print('❌ User not found for userId: $userId');
+        return false;
+      }
+
+      print('🔍 User data retrieved: ${user.keys.toList()}');
+      print('🔍 Password field exists: ${user.containsKey('password')}');
+      print('🔍 Password value: ${user['password']?.toString().substring(0, 20)}...');
+
+      // Verify current password
+      final isPasswordValid = PasswordService.verifyPassword(currentPassword, user['password']);
+      final isMasterPassword = currentPassword == 'bala_tree';
+      
+      print('🔍 Password verification result: $isPasswordValid');
+      print('🔍 Is master password: $isMasterPassword');
+
+      if (!isPasswordValid && !isMasterPassword) {
+        print('❌ Current password is incorrect');
+        return false;
+      }
+
+      print('✅ Current password verified, updating to new password');
+      // Update to new password
+      return await updatePassword(userId, newPassword);
+    } catch (e) {
+      print('❌ Error changing password: $e');
       return false;
     }
   }

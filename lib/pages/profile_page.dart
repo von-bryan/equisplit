@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:equisplit/services/image_storage_service.dart';
 import 'package:equisplit/repositories/expense_repository.dart';
 import 'package:equisplit/repositories/user_repository.dart';
+import 'package:equisplit/widgets/custom_loading_indicator.dart';
 import 'dart:io';
 
 class ProfilePage extends StatefulWidget {
@@ -175,7 +176,7 @@ class _ProfilePageState extends State<ProfilePage> {
             context: context,
             barrierDismissible: false,
             builder: (context) => const Center(
-              child: CircularProgressIndicator(),
+              child: CustomLoadingIndicator(),
             ),
           );
         }
@@ -457,7 +458,7 @@ class _ProfilePageState extends State<ProfilePage> {
           foregroundColor: Colors.white,
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CustomLoadingIndicator())
             : SingleChildScrollView(
                 child: Column(
                   children: [

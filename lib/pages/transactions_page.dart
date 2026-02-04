@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:equisplit/repositories/expense_repository.dart';
 import 'package:equisplit/services/image_storage_service.dart';
+import 'package:equisplit/widgets/custom_loading_indicator.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:path_provider/path_provider.dart';
@@ -189,7 +190,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                                 return Container(
                                                   color: Colors.grey[100],
                                                   child: const Center(
-                                                    child: CircularProgressIndicator(),
+                                                    child: CustomLoadingIndicator(size: 30),
                                                   ),
                                                 );
                                               },
@@ -453,7 +454,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
         future: _combinedTransactionsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CustomLoadingIndicator());
           }
 
           if (snapshot.hasError) {
@@ -605,28 +606,44 @@ class _TransactionsPageState extends State<TransactionsPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Pay to',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 11,
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundImage: transaction['payee_avatar'] != null
+                                          ? NetworkImage(ImageStorageService.getImageUrl(transaction['payee_avatar']))
+                                          : null,
+                                      backgroundColor: const Color(0xFF1976D2),
+                                      child: transaction['payee_avatar'] == null
+                                          ? Text(
+                                              transaction['payee_name'][0].toUpperCase(),
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Pay to',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 11,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        transaction['payee_name'],
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          transaction['payee_name'],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(width: 12),
                                 Container(
@@ -843,28 +860,44 @@ class _TransactionsPageState extends State<TransactionsPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Collect from',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 11,
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundImage: transaction['payer_avatar'] != null
+                                          ? NetworkImage(ImageStorageService.getImageUrl(transaction['payer_avatar']))
+                                          : null,
+                                      backgroundColor: const Color(0xFF1976D2),
+                                      child: transaction['payer_avatar'] == null
+                                          ? Text(
+                                              transaction['payer_name'][0].toUpperCase(),
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Collect from',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 11,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        transaction['payer_name'],
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          transaction['payer_name'],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(width: 12),
                                 Container(
@@ -903,8 +936,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                   child: OutlinedButton.icon(
                                     onPressed: () {
                                       _showPayerQRCodes(
-                                        transaction['payer_name'],
-                                        transaction['payer_id'],
+                                        transaction['payee_name'],
+                                        transaction['payee_id'],
                                       );
                                     },
                                     icon: const Icon(Icons.qr_code),

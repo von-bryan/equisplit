@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:equisplit/repositories/messaging_repository.dart';
+import 'package:equisplit/widgets/custom_loading_indicator.dart';
 import 'package:equisplit/repositories/friends_repository.dart';
 import 'package:equisplit/services/image_storage_service.dart';
 import 'dart:io';
+import 'dart:async';
 
 class MessagingPage extends StatefulWidget {
   final Map<String, dynamic>? currentUser;
@@ -18,15 +20,68 @@ class _MessagingPageState extends State<MessagingPage> {
   final _friendsRepo = FriendsRepository();
   late List<Map<String, dynamic>> _conversations = [];
   late List<Map<String, dynamic>> _allFriends = [];
-  late List<int> _pinnedConversations = [];
+  late final List<int> _pinnedConversations = [];
   bool _isLoading = true;
   int? _currentUserId;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
     _currentUserId = widget.currentUser?['user_id'] as int?;
     _loadData();
+    // Polling disabled to prevent avatar reloading
+    // _startPolling();
+  }
+
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _refreshData();
+    });
+  }
+
+  Future<void> _refreshData() async {
+    if (_currentUserId == null) return;
+
+    try {
+      final conversations = await _messagingRepo.getConversations(_currentUserId!);
+      
+      // Only update if there are actual changes (new messages or unread count changes)
+      bool hasChanges = false;
+      
+      if (conversations.length != _conversations.where((c) => c['id'] != null).length) {
+        hasChanges = true;
+      } else {
+        for (var newConv in conversations) {
+          final existingConv = _conversations.firstWhere(
+            (c) => c['id'] == newConv['id'],
+            orElse: () => {},
+          );
+          if (existingConv.isEmpty || 
+              existingConv['unread_count'] != newConv['unread_count'] ||
+              existingConv['last_message'] != newConv['last_message']) {
+            hasChanges = true;
+            break;
+          }
+        }
+      }
+
+      if (hasChanges && mounted) {
+        final allFriends = await _friendsRepo.getMutualFriends(_currentUserId!);
+        final mergedList = _mergeFriendsAndConversations(allFriends, conversations);
+        
+        setState(() {
+          _conversations = mergedList;
+          _allFriends = allFriends;
+        });
+      }
+    } catch (e) {
+      print('Error refreshing data: $e');
+    }
   }
 
   Future<void> _loadData() async {
@@ -121,10 +176,6 @@ class _MessagingPageState extends State<MessagingPage> {
     return merged;
   }
 
-  Future<void> _refreshData() async {
-    await _loadData();
-  }
-
   void _togglePin(int? conversationId) {
     if (conversationId == null) return;
     setState(() {
@@ -167,8 +218,12 @@ class _MessagingPageState extends State<MessagingPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  @override  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  @override  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Messages'),
@@ -176,7 +231,7 @@ class _MessagingPageState extends State<MessagingPage> {
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CustomLoadingIndicator())
           : _conversations.isEmpty
           ? Center(
               child: Column(
@@ -216,7 +271,7 @@ class _MessagingPageState extends State<MessagingPage> {
                       conversation['last_message'] as String? ?? '';
                   final lastMessageMediaType =
                       conversation['last_message_media_type'] as String?;
-                  final messageTime = conversation['created_at'] as DateTime?;
+                  final messageTime = (conversation['created_at'] as DateTime?)?.add(const Duration(hours: 8));
                   final unreadCount = conversation['unread_count'] as int? ?? 0;
                   final lastMessageSenderId =
                       conversation['last_message_sender_id'] as int?;

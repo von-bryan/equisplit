@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:equisplit/repositories/expense_repository.dart';
 import 'package:equisplit/repositories/user_repository.dart';
 import 'package:equisplit/repositories/friends_repository.dart';
 import 'package:equisplit/repositories/messaging_repository.dart';
 import 'package:equisplit/services/image_storage_service.dart';
+import 'package:equisplit/widgets/custom_loading_indicator.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:math';
@@ -31,61 +33,61 @@ class _DashboardPageState extends State<DashboardPage>
 
   // List of funny Tagalog jokes
   final List<String> _funnyQuotes = [
-    'Ano ang tawag sa manok na nag-invest? 🐔 Chick-enpital!',
-    'Bakit malungkot ang pitaka? Kasi laging empty nest syndrome! 😭',
-    'Knock knock! Sino yan? Cash! Cash who? Cash me outside pag may pera ka! 💸',
-    'Ano ang favorite song ng wallet? "Wag Ka Nang Umiyak" 🎵',
-    'Bakit laging late ang pera ko? Kasi traffic sa bulsa! 🚗',
-    'Ano ang tawag sa utang na matagal na? Vintage! 🍷',
-    'Bakit nag-gym ang piso? Para maging strong currency! 💪',
-    'Ano ang favorite app ng broke? Calculator - para mag-dasal! 🙏',
-    'Bakit masaya ang 5 pesos? Kasi alam niyang hindi siya yung unang magagastos! 😂',
-    'Ano ang tawag sa pera sa TikTok? Content-o! 📱',
-    'Bakit ayaw ng wallet pumunta sa mall? Trauma daw! 😰',
-    'Knock knock! Sino yan? Budget! Budget who? Budget-gan na, wala nang laman! 💀',
-    'Ano ang favorite movie ng pera? "Fast and Furious" - yung pagkagastos! 🏎️',
-    'Bakit naka-hoodie ang utang? Kasi ayaw mahuli! 🧥',
-    'Ano ang tawag sa grupo ng walang pera? Brokedown Squad! 👥',
-    'Bakit malungkot ang ATM? Kasi lagi lang siyang kinukuha, di man lang nirereply! 💔',
-    'Ano ang favorite series ng wallet? "Stranger Things" - stranger nga yung pera eh! 👻',
-    'Bakit nag-yoga ang budget? Para maging flexible! 🧘',
-    'Ano ang tawag sa pera na mahilig mag-travel? Wander-money! ✈️',
-    'Bakit laging busy ang bills? Kasi naka-autopay sa drama! 📱',
-    'Knock knock! Sino yan? Sweldo! Sweldo who? Swel-DO you know ba kung nasaan na? 😅',
-    'Ano ang favorite quote ng broke? "Someday" - someday magka-pera din! 🌟',
-    'Bakit nag-trending ang pera? Kasi sumama sa TikTok challenge! 🎵',
-    'Ano ang tawag sa matandang pera? Senior Piso! 👴',
-    'Bakit ayaw ng wallet mag-selfie? Kasi walang filter para sa emptiness! 📸',
-    'Ano ang favorite food ng utang? Interest! Laging may dagdag! 🍰',
-    'Bakit nag-ML ang pera? Kasi gusto niya mag-push! 🎮',
-    'Ano ang tawag sa pera sa Shopee? Flash sale survivor! ⚡',
-    'Bakit malungkot ang coins? Kasi barya lang sila sa buhay! 🪙',
-    'Knock knock! Sino yan? Savings! Savings who? Sabi nga, WHO? Wala eh! 😂',
-    'Ano ang favorite emoji ng broke? 😭💸🚫',
-    'Bakit nag-ghost ang pera? Kasi nag-seen lang sa GCash! 👻',
-    'Ano ang tawag sa wallet na puno? Fake news! 📰',
-    'Bakit ayaw ng budget sumama sa mall? Social distancing daw sa pera! 😷',
-    'Ano ang favorite TikTok sound ng utang? "Dati akong... libre!" 🎵',
-    'Bakit stressed ang calculator? Kasi lagi siyang may problemahin! 🧮',
-    'Ano ang tawag sa pera na nag-ML? Maniac mode - gastos nang gastos! 🎮',
-    'Bakit malungkot ang bank account? Kasi puro debit, walang credit sa love life! 💔',
-    'Knock knock! Sino yan? 13th month! 13th month who? Thirteen seconds lang naman tumagal! ⚡',
-    'Ano ang favorite game ng pera? Hide and seek - lagi siyang nag-tatago! 🎯',
-    'Bakit nag-Grab ang wallet? Kasi takot mag-MRT ng walang pera! 🚗',
-    'Ano ang tawag sa sale na hindi mo afford? Window shopping goals! 🛍️',
-    'Bakit nag-TikTok ang utang? Para maging viral ang singil! 📱',
-    'Ano ang favorite series ng broke? "Money Heist" - sana kasama ako! 🏦',
-    'Bakit ayaw ng pera mag-stay? Commitment issues daw! 💔',
-    'Knock knock! Sino yan? Payday! Payday who? Pay-day-an mo na kasi yung utang! 😤',
-    'Ano ang tawag sa pera na mahilig mag-ML? Gold laner - laging nag-farm! 🎮',
-    'Bakit nag-Spotify ang budget? Para marinig yung "Don\'t Stop Me Now" ng gastos! 🎵',
-    'Ano ang favorite hugot ng wallet? "Nandito lang ako, bakit hindi mo pa rin ako pansin?" 💔',
-    'Bakit nag-gym ang credit card? Para maging swole... ang utang! 💪',
+    'Bakit single ka pa rin? "Nag-iimpok pa, mare. Ipon muna bago jowa!" 💰😂',
+    'Teacher: "Bakit ka late?" Ako: "Traffic po sa bulsa, wala pong pamasahe!" 🚗💸',
+    'Ano ginagawa mo pag may pera? "Screenshot para may evidence!" 📸💵',
+    'Bakit ayaw mo mag-ML? "Kasi real life ko nga talo na, sa game pa kaya!" 🎮😭',
+    'Pag may nag-message sa\'yo ng "Uy kumain ka na?" ang totoo: "May pautang ka?" 🍽️💰',
+    'Kailan mo masasabi na adult ka na? Pag mas excited ka sa "SALE" kaysa "PARTY!" 🛍️🎉',
+    'Ano sinasabi mo pag may nanghiram ng pera? "Penge na rin ako, hiram ko na din yan!" 😂',
+    'Bakit ka nag-Grab? "Para feeling rich kahit 5 minutes lang!" 🚗✨',
+    'Pag tinext ka ng "Nasa\'n ka?" ang ibig sabihin: "May libre ka ba?" 🤔💸',
+    '"Send GCash na lang" - Ang national anthem ng Pilipinas! 🇵🇭💙',
+    'Ano difference ng baby mo at wallet mo? "Yung baby tumatagal, wallet lumalaki yung tiyan!" 👶👛',
+    'Bakit di ka pa nag-asawa? "Ayoko pa maging sponsor ng ibang tao!" 💍😅',
+    'Pag birthday mo: "Libre mo ko, birthday mo eh!" Logic? WALA! 🎂🤷',
+    'Sweldo day: Billionaire! 2 days later: "Pwede ba ako muna?" 💸📉',
+    'Ano tawag sa pera mo pagkatapos ng 15? Alamano! Nawala na! 🤪',
+    'May nakita akong meme: "Yung pera ko parang Pokemon, EVOLVE ng EVOLVE hanggang mawala!" ⚡💸',
+    'Bakit ka nag-ML? "Para may feeling na may gold ako!" 🏆🎮',
+    'Teacher: "Mag-ipon ka!" Me: "Sige po, mag-iipon ako ng utang!" 💰😭',
+    'Pag may nagtanong "Libre mo ko?" sagutin mo: "Libre ako, pero di kita libre!" 🤣',
+    'Budget for the month: "Sana all may budget!" 📊😅',
+    'Yung friend mo: "Tara kain!" Ikaw: "Sagot mo?" Friend: "Oo, sagot mo!" 🍔😂',
+    'Ano difference ng crush mo at pera mo? Pareho, di mo makuha! 💔💸',
+    'Pag may message na "K": Yung K lang afford ko e! 😅',
+    'Bakit ka nag-Shopee? "Para may checkout experience kahit walang pera!" 🛒😭',
+    'Ano ginagawa mo sa Spotify? "Nag-ski-skip, kasi di afford Premium!" 🎵',
+    'Pag tinanong ka "May pera ka?" sagot: "Meron, sa iba!" 💰🤷',
+    'New Year\'s Resolution: "Mag-iimpok!" March: "Anong ipon?" 😂📅',
+    'Bakit laging wala kang pera? "Kasi nag-invest ako sa kalungkutan!" 😭📉',
+    'Motto ko sa buhay: "Bahala na si Lord at GCash!" 🙏💙',
+    'Pag sinabing "May utang ako sa\'yo" ibig sabihin: "Historic debt yan pre!" 🏛️💸',
+    'Ano tawag mo sa wallet mo? "Empty spaces" - One Direction! 🎵👛',
+    'Sinong mas mabilis, Usain Bolt o pera mo? Pera mo! Wala na bigla! ⚡💸',
+    'Bakit ka stressed? "Kasi kahit sa panaginip ko, nangungutang pa rin!" 😴💰',
+    'Favorite mo sa Jollibee? "Yung wifi, libre!" 🍔📱',
+    'Ano favorite quote mo? "Sana ol may pera!" - Shakespeare 🎭💸',
+    'Pag nag-post ka ng food: "Salamat sa naglibre!" kahit ikaw bumili! 🍕😂',
+    'Bakit ayaw mong mag-gym? "Kasi taba ng wallet ko yung problema, hindi ako!" 💪👛',
+    'Pag may nag-DM: "Seen" kasi baka mangutang! 👀💬',
+    'Netflix: "Are you still watching?" Ako: "Nakikitingin lang po, di afford!" 📺😅',
+    'Ano favorite song ng wallet mo? "Wag Ka Nang Umiyak" kasi wala na! 🎵😭',
+    'Pag birthday mo tapos libre ka: "Parang nag-invest ka tapos balik lang walang tubo!" 🎂📉',
+    'Bakit di ka nag-aral? "Kasi mga mayaman naman ang nag-aaral ng Math, counting lang kami!" 🧮💸',
+    'Crush: "Tara date!" Ako: "Sige, virtual na lang sa Zoom!" 💻❤️',
+    'Ano superpower mo? "Makasurvive ng 1 week sa 100 pesos!" 🦸💯',
+    'Yung binigay mong ulam sa office: "Konting share lang" sabay ½ ng lunchbox mo! 🍱😂',
+    'Paano ka mag-save? "Screenshot ng pera!" 📸💵',
+    'Why are you single? "Kasi mas committed ako sa utang ko!" 💔💰',
+    'Bakit ka nag-TikTok? "Para feeling sikat kahit broke!" 📱✨',
+    'Online shopping: "Add to cart" pero check out? NEVER! 🛒❌',
   ];
 
   late String _selectedQuote;
   int _unreadMessageCount = 0;
   int _pendingFriendRequestCount = 0;
+  Timer? _notificationPollingTimer;
 
   @override
   void initState() {
@@ -99,6 +101,18 @@ class _DashboardPageState extends State<DashboardPage>
     _refreshPendingProofs();
     _loadPaymentHistory();
     _loadNotificationCounts();
+    // Polling disabled - badges only update on manual refresh
+    // _startNotificationPolling();
+  }
+
+  void _startNotificationPolling() {
+    _notificationPollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _loadNotificationCounts();
+    });
   }
 
   void _onScroll() {
@@ -112,6 +126,7 @@ class _DashboardPageState extends State<DashboardPage>
 
   @override
   void dispose() {
+    _notificationPollingTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _tabController.dispose();
@@ -135,7 +150,7 @@ class _DashboardPageState extends State<DashboardPage>
 
   void _loadPaymentHistory() {
     final userId = widget.user?['user_id'] ?? 1;
-    _paymentHistoryFuture = _expenseRepo.getPaymentHistory(userId);
+    _paymentHistoryFuture = _expenseRepo.getApprovedUserTransactions(userId);
   }
 
   Future<void> _loadNotificationCounts() async {
@@ -147,7 +162,8 @@ class _DashboardPageState extends State<DashboardPage>
       final friendRequestCount = await FriendsRepository()
           .getPendingRequestCount(userId);
 
-      if (mounted) {
+      // Only update if counts actually changed
+      if (mounted && (_unreadMessageCount != unreadCount || _pendingFriendRequestCount != friendRequestCount)) {
         setState(() {
           _unreadMessageCount = unreadCount;
           _pendingFriendRequestCount = friendRequestCount;
@@ -168,7 +184,65 @@ class _DashboardPageState extends State<DashboardPage>
   Widget build(BuildContext context) {
     final userId = widget.user?['user_id'] ?? 1;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
+        
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            title: const Text(
+              'Exit EquiSplit?',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            content: const Text(
+              'Do you want to exit the app?',
+              style: TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text(
+                  'No',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1976D2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                ),
+                child: const Text(
+                  'Yes',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ) ?? false;
+
+        if (shouldExit && context.mounted) {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
       body: RefreshIndicator(
         onRefresh: () async {
           _refreshPendingProofs();
@@ -278,7 +352,11 @@ class _DashboardPageState extends State<DashboardPage>
                         ],
                       ),
                       onTap: () {
-                        Navigator.pushNamed(context, '/settings');
+                        Navigator.pushNamed(
+                          context, 
+                          '/settings',
+                          arguments: widget.user,
+                        );
                       },
                     ),
                     PopupMenuItem(
@@ -388,8 +466,8 @@ class _DashboardPageState extends State<DashboardPage>
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
+                            return Center(
+                              child: CustomLoadingIndicator(),
                             );
                           }
 
@@ -822,6 +900,7 @@ class _DashboardPageState extends State<DashboardPage>
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      ),
     );
   }
 
@@ -835,7 +914,7 @@ class _DashboardPageState extends State<DashboardPage>
         future: _pendingProofsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CustomLoadingIndicator());
           }
 
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -874,21 +953,33 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildPaymentHistoryTab() {
+    final userId = widget.user?['user_id'] ?? 0;
+    print('🔍 Building payment history for user_id: $userId');
+    
     return RefreshIndicator(
       onRefresh: () async {
         setState(() {
           _displayedPaymentHistoryCount = 4; // Reset to initial count
-          _paymentHistoryFuture = _expenseRepo.getApprovedUserTransactions(
-            widget.user?['user_id'] ?? 0,
-          );
+          _paymentHistoryFuture = _expenseRepo.getApprovedUserTransactions(userId);
         });
         await Future.delayed(const Duration(milliseconds: 500));
       },
       child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _paymentHistoryFuture,
         builder: (context, snapshot) {
+          print('📊 Payment history state: ${snapshot.connectionState}');
+          print('📊 Has data: ${snapshot.hasData}');
+          print('📊 Data length: ${snapshot.data?.length ?? 0}');
+          
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CustomLoadingIndicator());
+          }
+
+          if (snapshot.hasError) {
+            print('❌ Payment history error: ${snapshot.error}');
+            return Center(
+              child: Text('Error: ${snapshot.error}'),
+            );
           }
 
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -1280,7 +1371,7 @@ class _DashboardPageState extends State<DashboardPage>
                     if (loadingProgress == null) return child;
                     return Container(
                       color: Colors.grey[100],
-                      child: const Center(child: CircularProgressIndicator()),
+                      child: Center(child: CustomLoadingIndicator(size: 30)),
                     );
                   },
                   errorBuilder: (context, error, stackTrace) {
@@ -1485,11 +1576,11 @@ class _DashboardPageState extends State<DashboardPage>
                                   builder: (context, snapshot) {
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
-                                      return const SizedBox(
+                                      return SizedBox(
                                         width: 200,
                                         height: 200,
                                         child: Center(
-                                          child: CircularProgressIndicator(),
+                                          child: CustomLoadingIndicator(),
                                         ),
                                       );
                                     }

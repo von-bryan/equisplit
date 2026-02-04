@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:equisplit/repositories/expense_repository.dart';
+import 'package:equisplit/widgets/custom_loading_indicator.dart';
 
 class ExpensesListPage extends StatefulWidget {
   final Map<String, dynamic>? user;
@@ -48,7 +49,7 @@ class _ExpensesListPageState extends State<ExpensesListPage> {
           future: _expensesFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(child: CustomLoadingIndicator());
             }
 
             if (snapshot.hasError) {

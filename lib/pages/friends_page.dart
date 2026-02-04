@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:equisplit/repositories/friends_repository.dart';
+import 'package:equisplit/widgets/custom_loading_indicator.dart';
 
 class FriendsPage extends StatefulWidget {
   final Map<String, dynamic>? currentUser;
@@ -341,7 +342,7 @@ class _FriendsPageState extends State<FriendsPage>
           children: [
             // Pending Requests Tab
             _isLoadingPending
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CustomLoadingIndicator())
                 : _pendingRequests.isEmpty
                 ? Center(
                     child: Column(
@@ -406,7 +407,7 @@ class _FriendsPageState extends State<FriendsPage>
 
             // My Friends Tab
             _isLoadingFriends
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CustomLoadingIndicator())
                 : _myFriends.isEmpty
                 ? Center(
                     child: Column(
@@ -529,7 +530,7 @@ class _FriendsPageState extends State<FriendsPage>
 
   Widget _buildSearchResultsView() {
     return _isSearching
-        ? const Center(child: CircularProgressIndicator())
+        ? Center(child: CustomLoadingIndicator())
         : _searchResults.isEmpty
         ? Center(
             child: Padding(
