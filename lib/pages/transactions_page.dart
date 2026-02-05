@@ -336,24 +336,22 @@ class _TransactionsPageState extends State<TransactionsPage> {
     try {
       print('📥 Downloading QR code: ${qrData['label']}');
       
-      final downloadsDir = await getDownloadsDirectory();
-      if (downloadsDir == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Downloads folder not found'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
+      // Use DCIM/Camera folder
+      final downloadDir = Directory('/storage/emulated/0/DCIM/Camera');
+      print('📂 Using DCIM/Camera folder: ${downloadDir.path}');
+      
+      // Create directory if it doesn't exist
+      if (!await downloadDir.exists()) {
+        print('📂 Creating DCIM/Camera directory...');
+        await downloadDir.create(recursive: true);
+        print('✅ Directory created');
       }
 
       // Create filename
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final label = qrData['label'].toString().replaceAll(' ', '_');
       final fileName = '${payerName}_${label}_$timestamp.png';
-      final downloadPath = '${downloadsDir.path}/$fileName';
+      final downloadPath = '${downloadDir.path}/$fileName';
 
       // Determine if this is a server or local file
       final qrImagePath = qrData['image']?.path ?? '';
@@ -373,10 +371,26 @@ class _TransactionsPageState extends State<TransactionsPage> {
             await file.writeAsBytes(response.bodyBytes);
             print('✅ Downloaded from server to: $downloadPath');
             
+            // Trigger media scan so file appears in gallery
+            print('📸 Triggering media scan for gallery...');
+            try {
+              if (Platform.isAndroid) {
+                await Process.run('am', [
+                  'broadcast',
+                  '-a',
+                  'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
+                  '-d',
+                  'file://$downloadPath'
+                ]);
+              }
+            } catch (scanError) {
+              print('⚠️ Media scan failed: $scanError');
+            }
+            
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: const Text('📸 QR Code saved to Downloads folder!'),
+                  content: const Text('📸 QR Code saved to DCIM/Camera!'),
                   backgroundColor: Colors.green,
                   duration: const Duration(seconds: 2),
                 ),
@@ -416,10 +430,26 @@ class _TransactionsPageState extends State<TransactionsPage> {
         await sourceFile.copy(downloadPath);
         print('✅ Downloaded from local storage to: $downloadPath');
         
+        // Trigger media scan so file appears in gallery
+        print('📸 Triggering media scan for gallery...');
+        try {
+          if (Platform.isAndroid) {
+            await Process.run('am', [
+              'broadcast',
+              '-a',
+              'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
+              '-d',
+              'file://$downloadPath'
+            ]);
+          }
+        } catch (scanError) {
+          print('⚠️ Media scan failed: $scanError');
+        }
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('📸 QR Code saved to Downloads folder!'),
+              content: const Text('📸 QR Code saved to DCIM/Camera!'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 2),
             ),

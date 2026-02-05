@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:equisplit/services/image_storage_service.dart';
+import 'package:equisplit/services/database_service.dart';
 import 'package:equisplit/repositories/expense_repository.dart';
 import 'package:equisplit/repositories/user_repository.dart';
 import 'package:equisplit/widgets/custom_loading_indicator.dart';
@@ -7,6 +8,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ExpenseDetailsPage extends StatefulWidget {
   final int expenseId;
@@ -60,6 +62,9 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
 
   Future<void> _loadExpenseDetails() async {
     try {
+      // Database connection will auto-reconnect if needed via _ensureConnected
+      print('📂 Loading expense details...');
+      
       // Get expense details (includes creator_name from LEFT JOIN)
       final expense = await _expenseRepo.getExpenseById(widget.expenseId);
       
@@ -92,9 +97,13 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
         });
       }
     } catch (e) {
+      print('❌ Error loading expense details: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading expense details: $e')),
+          SnackBar(
+            content: Text('Error loading details: ${e.toString().contains('Connection') ? 'Network error' : e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
         setState(() => isLoading = false);
       }
@@ -238,9 +247,9 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
       
       print('✅ Permission check complete - proceeding to download');
       
-      // Get the Downloads directory - use direct path to public Downloads folder
-      Directory downloadDir = Directory('/storage/emulated/0/Download');
-      print('📂 Using public Downloads folder: ${downloadDir.path}');
+      // Use DCIM/Camera folder for QR codes
+      Directory downloadDir = Directory('/storage/emulated/0/DCIM/Camera');
+      print('📂 Using DCIM/Camera folder: ${downloadDir.path}');
       
       // Ensure directory exists
       if (!await downloadDir.exists()) {
@@ -287,6 +296,24 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
             print('📝 Writing ${response.bodyBytes.length} bytes to file...');
             await file.writeAsBytes(response.bodyBytes);
             
+            // Trigger media scan so file appears in gallery
+            print('📸 Triggering media scan for gallery...');
+            try {
+              if (Platform.isAndroid) {
+                // Use Android media scanner
+                final result = await Process.run('am', [
+                  'broadcast',
+                  '-a',
+                  'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
+                  '-d',
+                  'file://$downloadPath'
+                ]);
+                print('📸 Media scan result: ${result.exitCode}');
+              }
+            } catch (scanError) {
+              print('⚠️ Media scan failed (file still saved): $scanError');
+            }
+            
             // Verify file was created
             final fileExists = await file.exists();
             final fileSize = await file.length();
@@ -305,7 +332,7 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
                         const SizedBox(height: 4),
                         Text('File: $fileName', style: const TextStyle(fontSize: 12)),
                         const SizedBox(height: 2),
-                        const Text('Location: Downloads folder', style: TextStyle(fontSize: 12)),
+                        const Text('Location: DCIM/Camera', style: TextStyle(fontSize: 12)),
                       ],
                     ),
                     duration: const Duration(seconds: 5),
@@ -502,7 +529,12 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
                       setDialogState(() => isUploading = true);
 
                       try {
+                        // Wait for system to stabilize if app was just resumed
+                        await Future.delayed(const Duration(milliseconds: 1000));
+                        print('📤 Preparing to upload proof...');
+                        
                         // Upload image to server (compressed)
+                        print('📤 Starting proof image upload...');
                         final proofImagePath =
                             await ImageStorageService.saveProofOfPayment(File(image.path));
 
@@ -510,12 +542,13 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
                           if (mounted) {
                             setDialogState(() => isUploading = false);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Failed to upload image')),
+                              const SnackBar(content: Text('Failed to upload image to server')),
                             );
                           }
                           return;
                         }
 
+                        print('💾 Saving proof to database...');
                         // Save to database only when approved
                         final success = await _expenseRepo.addProofOfPayment(
                           transactionId: transactionId,
@@ -543,15 +576,20 @@ class _ExpenseDetailsPageState extends State<ExpenseDetailsPage>
                           if (mounted) {
                             setDialogState(() => isUploading = false);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Failed to save proof')),
+                              const SnackBar(content: Text('Failed to save proof to database. Please try again.')),
                             );
                           }
                         }
                       } catch (e) {
+                        print('❌ Proof upload error: $e');
                         if (mounted) {
                           setDialogState(() => isUploading = false);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
+                            SnackBar(
+                              content: Text('Upload failed: ${e.toString().contains('Connection') ? 'Network error. Please check your connection.' : e.toString()}'),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 4),
+                            ),
                           );
                         }
                       }

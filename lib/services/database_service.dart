@@ -36,9 +36,9 @@ class DatabaseService {
   /// Reconnect if connection is closed
   Future<void> _ensureConnected() async {
     try {
-      // Check if connection is null or likely dead
+      // Check if connection is null
       if (_connection == null) {
-        print('🔄 Connection is null, reconnecting...');
+        print('🔄 No connection, creating new one...');
         await connect();
         return;
       }
@@ -47,27 +47,26 @@ class DatabaseService {
       try {
         await _connection!.query('SELECT 1');
       } catch (e) {
-        print('⚠️ Connection ping failed: $e');
+        print('⚠️ Connection test failed, creating fresh connection...');
+        // Don't close - just abandon the old connection and create new one
         _connection = null;
-        print('🔄 Connection dead, reconnecting...');
+        // Wait longer to ensure complete socket release (2 seconds)
+        await Future.delayed(const Duration(milliseconds: 2000));
         await connect();
       }
     } catch (e) {
-      print('❌ Failed to reconnect: $e');
+      print('❌ Failed to establish connection: $e');
       throw Exception('Database connection lost: $e');
     }
   }
 
-  /// Close the database connection
+  /// Abandon the database connection (let it be garbage collected)
   Future<void> close() async {
     if (_connection != null) {
-      try {
-        await _connection!.close();
-        _connection = null;
-        print('Database connection closed');
-      } catch (e) {
-        print('Error closing connection: $e');
-      }
+      print('🗑️ Abandoning current connection (will be garbage collected)');
+      _connection = null;
+      // Don't call _connection.close() - it causes socket corruption
+      // Just let the connection be garbage collected naturally
     }
   }
 
@@ -89,17 +88,38 @@ class DatabaseService {
           errorMsg.contains('connection') ||
           errorMsg.contains('bad state') ||
           errorMsg.contains('range error')) {
-        print('🔄 Connection error detected, attempting reconnect...');
+        print('🔄 Connection error, creating fresh connection...');
+        // Abandon the corrupted connection (don't close it)
         _connection = null;
         
         try {
+          // Wait for old connection to be garbage collected
+          await Future.delayed(const Duration(milliseconds: 1500));
           await _ensureConnected();
-          print('🔄 Reconnected successfully, retrying query...');
+          print('🔄 Fresh connection established, retrying query...');
           Results results = await _connection!.query(sql, values);
           return results.map((row) => row.fields).toList();
         } catch (retryError) {
-          print('❌ Retry failed: $retryError');
-          rethrow;
+          // Check if it's the RangeError (corrupted buffer)
+          final retryErrorMsg = retryError.toString().toLowerCase();
+          if (retryErrorMsg.contains('range error') || retryErrorMsg.contains('index out of range')) {
+            print('❌ RangeError detected - connection still corrupted, waiting longer...');
+            _connection = null;
+            try {
+              // Wait MUCH longer for complete cleanup (3 seconds)
+              await Future.delayed(const Duration(milliseconds: 3000));
+              await _ensureConnected();
+              print('🔄 Final attempt with fresh connection...');
+              Results results = await _connection!.query(sql, values);
+              return results.map((row) => row.fields).toList();
+            } catch (finalError) {
+              print('❌ Final retry failed: $finalError');
+              rethrow;
+            }
+          } else {
+            print('❌ Retry failed: $retryError');
+            rethrow;
+          }
         }
       }
       rethrow;
@@ -129,16 +149,36 @@ class DatabaseService {
           errorMsg.contains('connection') ||
           errorMsg.contains('bad state') ||
           errorMsg.contains('range error')) {
-        print('🔄 Connection error detected, attempting reconnect...');
+        print('🔄 Connection error, creating fresh connection...');
+        // Abandon the corrupted connection (don't close it)
         _connection = null;
         
         try {
+          // Wait for old connection to be garbage collected
+          await Future.delayed(const Duration(milliseconds: 1500));
           await _ensureConnected();
-          print('🔄 Reconnected successfully, retrying execute...');
+          print('🔄 Fresh connection established, retrying execute...');
           await _connection!.query(sql, values);
         } catch (retryError) {
-          print('❌ Retry failed: $retryError');
-          rethrow;
+          // Check if it's the RangeError (corrupted buffer)
+          final retryErrorMsg = retryError.toString().toLowerCase();
+          if (retryErrorMsg.contains('range error') || retryErrorMsg.contains('index out of range')) {
+            print('❌ RangeError detected - connection still corrupted, waiting longer...');
+            _connection = null;
+            try {
+              // Wait MUCH longer for complete cleanup (3 seconds)
+              await Future.delayed(const Duration(milliseconds: 3000));
+              await _ensureConnected();
+              print('🔄 Final attempt with fresh connection...');
+              await _connection!.query(sql, values);
+            } catch (finalError) {
+              print('❌ Final retry failed: $finalError');
+              rethrow;
+            }
+          } else {
+            print('❌ Retry failed: $retryError');
+            rethrow;
+          }
         }
       } else {
         rethrow;

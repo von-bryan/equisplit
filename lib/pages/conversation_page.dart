@@ -707,12 +707,28 @@ class _ConversationPageState extends State<ConversationPage> {
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
                                       ),
-                                      child: Text(
-                                        _formatTime(createdAt),
-                                        style: TextStyle(
-                                          color: Colors.grey[500],
-                                          fontSize: 11,
-                                        ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _formatTime(createdAt),
+                                            style: TextStyle(
+                                              color: Colors.grey[500],
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                          if (isSent) ...[
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              message['is_read'] == 1 ? '• Seen' : '• Delivered',
+                                              style: TextStyle(
+                                                color: message['is_read'] == 1 ? Colors.blue[700] : Colors.grey[500],
+                                                fontSize: 10,
+                                                fontWeight: message['is_read'] == 1 ? FontWeight.w500 : FontWeight.normal,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
                                   ],
