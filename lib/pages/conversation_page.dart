@@ -4,9 +4,11 @@ import 'package:equisplit/services/image_storage_service.dart';
 import 'package:equisplit/widgets/video_player_widget.dart';
 import 'package:equisplit/widgets/custom_loading_indicator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
@@ -36,9 +38,10 @@ class _ConversationPageState extends State<ConversationPage> {
   int? _otherUserId;
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
-  bool _isSending = false;
+  final bool _isSending = false;
   bool _isUploadingMedia = false;
   Timer? _pollingTimer;
+  final Set<String> _sendingMessageIds = {}; // Track messages being sent
 
   @override
   void initState() {
@@ -112,21 +115,51 @@ class _ConversationPageState extends State<ConversationPage> {
       return;
     }
 
-    setState(() => _isSending = true);
     _messageController.clear();
+    
+    // Create temporary message ID (negative to avoid conflicts)
+    final tempId = -DateTime.now().millisecondsSinceEpoch;
+    
+    // Add message optimistically to UI
+    final tempMessage = {
+      'id': tempId,
+      'sender_id': _currentUserId,
+      'content': content,
+      'created_at': DateTime.now(),
+      'media_type': 'text',
+      'media_url': null,
+      'is_sending': true, // Mark as sending
+    };
+    
+    setState(() {
+      _messages.add(tempMessage);
+      _sendingMessageIds.add(tempId.toString());
+    });
+    _scrollToBottom();
 
+    // Send to server
     final success = await _messagingRepo.sendMessage(
       _conversationId,
       _currentUserId!,
       _otherUserId!,
       content,
     );
-
+    
     if (success) {
+      // Reload messages first
       await _loadMessages();
+      // Then remove temp message
+      setState(() {
+        _messages.removeWhere((m) => m['id'] == tempId);
+        _sendingMessageIds.remove(tempId.toString());
+      });
+    } else {
+      // If failed, just remove the temp message
+      setState(() {
+        _messages.removeWhere((m) => m['id'] == tempId);
+        _sendingMessageIds.remove(tempId.toString());
+      });
     }
-
-    setState(() => _isSending = false);
   }
 
   Future<void> _pickAndSendMedia(ImageSource source, bool isVideo) async {
@@ -211,6 +244,25 @@ class _ConversationPageState extends State<ConversationPage> {
 
         print('🎬 Media type determined: $mediaType (isVideo=$isVideo, mimeType=$mimeType, filePath=$filePath)');
 
+        // Add message optimistically to UI
+        final tempId = -DateTime.now().millisecondsSinceEpoch;
+        final tempMessage = {
+          'id': tempId,
+          'sender_id': _currentUserId,
+          'content': isVideo ? '📹 Video' : '📷 Photo',
+          'created_at': DateTime.now(),
+          'media_type': mediaType,
+          'media_url': filePath,
+          'is_sending': true,
+        };
+        
+        setState(() {
+          _messages.add(tempMessage);
+          _sendingMessageIds.add(tempId.toString());
+          _isUploadingMedia = false;
+        });
+        _scrollToBottom();
+
         // Send message with media (save full path like avatars)
         final success = await _messagingRepo.sendMessage(
           _conversationId,
@@ -222,9 +274,22 @@ class _ConversationPageState extends State<ConversationPage> {
         );
 
         if (success) {
+          // Reload messages first
           await _loadMessages();
+          // Then remove temp message
+          setState(() {
+            _messages.removeWhere((m) => m['id'] == tempId);
+            _sendingMessageIds.remove(tempId.toString());
+          });
+        } else {
+          // If failed, just remove the temp message
+          setState(() {
+            _messages.removeWhere((m) => m['id'] == tempId);
+            _sendingMessageIds.remove(tempId.toString());
+          });
         }
       } else {
+        setState(() => _isUploadingMedia = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to upload media')),
@@ -240,6 +305,252 @@ class _ConversationPageState extends State<ConversationPage> {
       }
     } finally {
       setState(() => _isUploadingMedia = false);
+    }
+  }
+
+  Future<void> _pickAndSendFile() async {
+    if (_currentUserId == null || _otherUserId == null) return;
+
+    try {
+      setState(() => _isUploadingMedia = true);
+
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        setState(() => _isUploadingMedia = false);
+        return;
+      }
+
+      final file = result.files.first;
+      final filePath = file.path;
+
+      if (filePath == null) {
+        setState(() => _isUploadingMedia = false);
+        return;
+      }
+
+      // Check file size (max 70MB)
+      final fileSize = file.size;
+      if (fileSize > 70 * 1024 * 1024) {
+        setState(() => _isUploadingMedia = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('File must be 70MB or less'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Upload to server
+      final uri = Uri.parse(
+        'http://${ImageStorageService.SERVER_IP}:${ImageStorageService.SERVER_PORT}/api/upload/chat',
+      );
+      final request = http.MultipartRequest('POST', uri);
+      request.files.add(
+        await http.MultipartFile.fromPath('file', filePath),
+      );
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      final jsonResponse = json.decode(responseBody);
+
+      if (jsonResponse['success'] == true) {
+        final uploadedPath = jsonResponse['filePath'];
+        final fileName = file.name;
+
+        print('📎 File uploaded: $uploadedPath (size: ${_formatFileSize(fileSize)})');
+
+        // Add message optimistically to UI
+        final tempId = -DateTime.now().millisecondsSinceEpoch;
+        final tempMessage = {
+          'id': tempId,
+          'sender_id': _currentUserId,
+          'content': '📎 $fileName',
+          'created_at': DateTime.now(),
+          'media_type': 'file',
+          'media_url': uploadedPath,
+          'is_sending': true,
+        };
+        
+        setState(() {
+          _messages.add(tempMessage);
+          _sendingMessageIds.add(tempId.toString());
+          _isUploadingMedia = false;
+        });
+        _scrollToBottom();
+
+        // Send message with file
+        final success = await _messagingRepo.sendMessage(
+          _conversationId,
+          _currentUserId!,
+          _otherUserId!,
+          '📎 $fileName',
+          mediaType: 'file',
+          mediaUrl: uploadedPath,
+        );
+
+        if (success) {
+          // Reload messages first
+          await _loadMessages();
+          // Then remove temp message
+          setState(() {
+            _messages.removeWhere((m) => m['id'] == tempId);
+            _sendingMessageIds.remove(tempId.toString());
+          });
+        } else {
+          // If failed, just remove the temp message
+          setState(() {
+            _messages.removeWhere((m) => m['id'] == tempId);
+            _sendingMessageIds.remove(tempId.toString());
+          });
+        }
+      } else {
+        setState(() => _isUploadingMedia = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to upload file')),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error uploading file: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isUploadingMedia = false);
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '${bytes}B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)}GB';
+  }
+
+  String _getFileIcon(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return '📄';
+      case 'doc':
+      case 'docx':
+        return '📝';
+      case 'xls':
+      case 'xlsx':
+      case 'csv':
+        return '📊';
+      case 'ppt':
+      case 'pptx':
+        return '📽️';
+      case 'zip':
+      case 'rar':
+      case '7z':
+        return '🗜️';
+      case 'apk':
+        return '📦';
+      case 'txt':
+        return '📃';
+      case 'mp3':
+      case 'wav':
+      case 'flac':
+        return '🎵';
+      default:
+        return '📎';
+    }
+  }
+
+  Future<void> _downloadFile(String filePath, String fileName) async {
+    try {
+      print('📥 Downloading file: $fileName from $filePath');
+
+      // Use Downloads folder
+      final downloadDir = Directory('/storage/emulated/0/Download');
+      
+      if (!await downloadDir.exists()) {
+        await downloadDir.create(recursive: true);
+      }
+
+      final downloadPath = '${downloadDir.path}/$fileName';
+
+      // Check if file already exists
+      if (await File(downloadPath).exists()) {
+        // Add timestamp to filename
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final fileExt = fileName.split('.').last;
+        final baseName = fileName.substring(0, fileName.length - fileExt.length - 1);
+        fileName = '${baseName}_$timestamp.$fileExt';
+      }
+
+      final finalPath = '${downloadDir.path}/$fileName';
+
+      // Download from server
+      final fileUrl = 'http://${ImageStorageService.SERVER_IP}:${ImageStorageService.SERVER_PORT}$filePath';
+      final response = await http.get(Uri.parse(fileUrl));
+
+      if (response.statusCode == 200) {
+        final file = File(finalPath);
+        await file.writeAsBytes(response.bodyBytes);
+
+        // Trigger media scan
+        if (Platform.isAndroid) {
+          try {
+            await Process.run('am', [
+              'broadcast',
+              '-a',
+              'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
+              '-d',
+              'file://$finalPath'
+            ]);
+          } catch (e) {
+            print('⚠️ Media scan failed: $e');
+          }
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Downloaded: $fileName'),
+              backgroundColor: Colors.green,
+              action: SnackBarAction(
+                label: 'Open Folder',
+                textColor: Colors.white,
+                onPressed: () async {
+                  // Open file manager to downloads folder
+                  final uri = Uri.parse('content://com.android.externalstorage.documents/document/primary:Download');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  }
+                },
+              ),
+            ),
+          );
+        }
+      } else {
+        throw Exception('Failed to download: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Download error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Download failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -283,6 +594,16 @@ class _ConversationPageState extends State<ConversationPage> {
               onTap: () {
                 Navigator.pop(context);
                 _pickAndSendMedia(ImageSource.camera, true);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.attach_file, color: Color(0xFF1976D2)),
+              title: const Text('Send File'),
+              subtitle: const Text('PDF, APK, ZIP, etc. (max 70MB)'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAndSendFile();
               },
             ),
           ],
@@ -668,10 +989,69 @@ class _ConversationPageState extends State<ConversationPage> {
                                                   VideoPlayerWidget(
                                                     videoUrl:
                                                         'http://${ImageStorageService.SERVER_IP}:${ImageStorageService.SERVER_PORT}$mediaUrl',
+                                                  )
+                                                else if (mediaType == 'file')
+                                                  GestureDetector(
+                                                    onTap: () => _downloadFile(mediaUrl ?? '', content.replaceFirst('📎 ', '')),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.all(12),
+                                                      decoration: BoxDecoration(
+                                                        color: isSent
+                                                            ? Colors.white.withOpacity(0.2)
+                                                            : Colors.white,
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            _getFileIcon(content.replaceFirst('📎 ', '')),
+                                                            style: const TextStyle(fontSize: 32),
+                                                          ),
+                                                          const SizedBox(width: 12),
+                                                          Flexible(
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Text(
+                                                                  content.replaceFirst('📎 ', ''),
+                                                                  style: TextStyle(
+                                                                    color: isSent
+                                                                        ? Colors.white
+                                                                        : Colors.black87,
+                                                                    fontSize: 14,
+                                                                    fontWeight: FontWeight.w500,
+                                                                  ),
+                                                                  maxLines: 2,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                ),
+                                                                const SizedBox(height: 4),
+                                                                Text(
+                                                                  'Tap to download',
+                                                                  style: TextStyle(
+                                                                    color: isSent
+                                                                        ? Colors.white70
+                                                                        : Colors.grey[600],
+                                                                    fontSize: 12,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          Icon(
+                                                            Icons.download,
+                                                            color: isSent ? Colors.white : const Color(0xFF1976D2),
+                                                            size: 20,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ),
                                                 if (content.isNotEmpty &&
                                                     content != '📷 Photo' &&
-                                                    content != '📹 Video')
+                                                    content != '📹 Video' &&
+                                                    !content.startsWith('📎 '))
                                                   Padding(
                                                     padding:
                                                         const EdgeInsets.only(
@@ -710,23 +1090,44 @@ class _ConversationPageState extends State<ConversationPage> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(
-                                            _formatTime(createdAt),
-                                            style: TextStyle(
-                                              color: Colors.grey[500],
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                          if (isSent) ...[
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              message['is_read'] == 1 ? '• Seen' : '• Delivered',
-                                              style: TextStyle(
-                                                color: message['is_read'] == 1 ? Colors.blue[700] : Colors.grey[500],
-                                                fontSize: 10,
-                                                fontWeight: message['is_read'] == 1 ? FontWeight.w500 : FontWeight.normal,
+                                          // Show sending indicator
+                                          if (message['is_sending'] == true) ...[
+                                            const SizedBox(
+                                              width: 12,
+                                              height: 12,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.5,
+                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
                                               ),
                                             ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Sending...',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 11,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ] else ...[
+                                            Text(
+                                              _formatTime(createdAt),
+                                              style: TextStyle(
+                                                color: Colors.grey[500],
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                            if (isSent) ...[
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                message['is_read'] == 1 ? '• Seen' : '• Delivered',
+                                                style: TextStyle(
+                                                  color: message['is_read'] == 1 ? Colors.blue[700] : Colors.grey[500],
+                                                  fontSize: 10,
+                                                  fontWeight: message['is_read'] == 1 ? FontWeight.w500 : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ],
                                       ),
@@ -788,7 +1189,7 @@ class _ConversationPageState extends State<ConversationPage> {
                           horizontal: 16,
                         ),
                       ),
-                      enabled: !_isSending && !_isUploadingMedia,
+                      enabled: !_isUploadingMedia,
                       maxLines: null,
                     ),
                   ),
@@ -799,22 +1200,9 @@ class _ConversationPageState extends State<ConversationPage> {
                       color: Color(0xFF1976D2),
                     ),
                     child: IconButton(
-                      icon: _isSending
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                          : const Icon(Icons.send),
+                      icon: const Icon(Icons.send),
                       color: Colors.white,
-                      onPressed: (_isSending || _isUploadingMedia)
-                          ? null
-                          : _sendMessage,
+                      onPressed: _isUploadingMedia ? null : _sendMessage,
                     ),
                   ),
                 ],

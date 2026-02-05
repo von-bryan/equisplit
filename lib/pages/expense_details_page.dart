@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:equisplit/services/image_storage_service.dart';
-import 'package:equisplit/services/database_service.dart';
 import 'package:equisplit/repositories/expense_repository.dart';
 import 'package:equisplit/repositories/user_repository.dart';
 import 'package:equisplit/widgets/custom_loading_indicator.dart';
@@ -8,7 +7,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 
 class ExpenseDetailsPage extends StatefulWidget {
   final int expenseId;

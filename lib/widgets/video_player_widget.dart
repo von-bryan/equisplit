@@ -73,7 +73,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         // Pause video when returning from fullscreen
         _controller.pause();
       },
-      child: Container(
+      child: SizedBox(
         width: 200,
         height: 150,
         child: Stack(

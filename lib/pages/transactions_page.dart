@@ -4,7 +4,6 @@ import 'package:equisplit/services/image_storage_service.dart';
 import 'package:equisplit/widgets/custom_loading_indicator.dart';
 import 'dart:io';
 import 'dart:async';
-import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
 class TransactionsPage extends StatefulWidget {
